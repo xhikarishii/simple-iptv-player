@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; media-src * blob: data:; connect-src *;">
+    <title>Streamline Admin</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.3/ace.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --danger: #ef4444;
+            --info: #0ea5e9;
+            --success: #10b981;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        header {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: -1px;
+            margin: 0;
+        }
+
+        .header-link {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .header-link:hover {
+            color: var(--text-main);
+        }
+
+        .admin-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 1100px) { 
+            body { overflow: hidden; position: fixed; width: 100%; height: 100%; }
+            
+            /* Convert grid to vertical flexbox */
+            .app-container { display: flex; flex-direction: column; height: 100dvh; } 
+            
+            /* Compact Header */
+            header { padding: 10px 15px; height: 60px; box-sizing: border-box; }
+            .logo { font-size: 1.2rem; }
+            header button, header a { padding: 6px 12px; font-size: 0.8rem; }
+            
+            /* Lock video to perfect 16:9 ratio at the top */
+            .player-area { padding: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; flex-shrink: 0; } 
+            .video-wrapper { border-radius: 0; } 
+            
+            /* Sidebar takes the exact remaining screen height */
+            .sidebar { flex-grow: 1; height: 0; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); } 
+            
+            /* Fix Modals for narrow phone screens */
+            .modal-content { width: 90%; max-width: 320px; padding: 25px; box-sizing: border-box; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--text-main);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 15px;
+        }
+
+        .card h4 {
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: opacity 0.2s, transform 0.1s;
+            width: 100%;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            width: auto;
+            border-radius: 6px;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-info {
+            background: rgba(14, 165, 233, 0.15);
+            color: var(--info);
+        }
+
+        .btn-info:hover {
+            background: var(--info);
+            color: white;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .list-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .list-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .item-title {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .item-meta {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .action-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .close-btn {
+            cursor: pointer;
+            color: var(--text-dim);
+            font-size: 1.5rem;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: white;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1 class="logo">STREAMLINE.</h1>
+        <a href="/" class="header-link">← Back to Player</a>
+    </header>
+
+    <main class="admin-container">
+
+        <div class="card">
+            <h3>👥 User Management</h3>
+            <ul id="userList"></ul>
+
+            <h4>Add New User</h4>
+            <input type="text" id="newUsername" placeholder="Username" autocomplete="off">
+            <input type="password" id="newPassword" placeholder="Password" autocomplete="new-password">
+            <select id="newRole">
+                <option value="viewer">Viewer</option>
+                <option value="admin">Admin</option>
+            </select>
+            <button onclick="addUser()">Create User</button>
+        </div>
+
+        <div class="card">
+            <h3>📺 Playlists</h3>
+            <ul id="playlistList"></ul>
+
+            <h4>Create Playlist</h4>
+            <input type="text" id="newPlaylistName" placeholder="Playlist Name (e.g. Premium Sports)">
+            <select id="playlistUser">
+                <option value="">Assign to User...</option>
+            </select>
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Shared With
+                (Hold Ctrl/Cmd to multi-select)</label>
+            <select id="playlistShared" multiple style="height: 100px; padding: 8px;">
+            </select>
+
+            <div id="newPlaylistChannels"
+                style="height: 250px; width: 100%; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
+            </div>
+
+            <button onclick="addPlaylist()" style="background: var(--success);">Save Playlist</button>
+        </div>
+    </main>
+
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">Change Password</h3>
+                <span class="close-btn" onclick="closePasswordModal()">&times;</span>
+            </div>
+            <p style="color: var(--text-dim); font-size: 0.9rem; margin-top: 0; margin-bottom: 20px;">Update the
+                credentials for this account.</p>
+            <input type="hidden" id="editUserId">
+            <input type="password" id="editNewPassword" placeholder="Enter new password">
+            <button onclick="submitChangePassword()" style="background: var(--info);">Update Password</button>
+        </div>
+    </div>
+
+    <div id="editPlaylistModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">✏️ Edit Playlist</h3>
+                <span class="close-btn" onclick="closeEditPlaylistModal()">&times;</span>
+            </div>
+
+            <input type="hidden" id="editPlaylistId">
+
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Playlist
+                Name</label>
+            <input type="text" id="editPlaylistName" placeholder="e.g. Premium Sports">
+
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Assign to
+                User</label>
+            <select id="editPlaylistUser">
+                <option value="">Select User...</option>
+            </select>
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Shared With
+                (Hold Ctrl/Cmd to multi-select)</label>
+            <select id="editPlaylistShared" multiple style="height: 100px; padding: 8px;">
+            </select>
+
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Channel Data
+                (JSON)</label>
+
+            <div id="editPlaylistChannels"
+                style="height: 300px; width: 100%; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
+            </div>
+
+            <button onclick="submitEditPlaylist()" style="background: var(--primary); margin-top: 10px;">Update
+                Playlist</button>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+
+</html>
