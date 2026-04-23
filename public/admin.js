@@ -318,6 +318,13 @@ async function deletePlaylist(id) {
     else alert('Error deleting playlist');
 }
 
+function toggleAdminMenu() {
+    const menu = document.getElementById('adminSlidingMenu');
+    const backdrop = document.getElementById('adminMenuBackdrop');
+    if (menu) menu.classList.toggle('active');
+    if (backdrop) backdrop.classList.toggle('active');
+}
+
 document.addEventListener('DOMContentLoaded', verifyAdmin);
 
 // --- ANTI-DEBUGGING SAFEGUARDS ---

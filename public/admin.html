@@ -87,12 +87,63 @@
             header button, header a { padding: 6px 12px; font-size: 0.8rem; }
             
             /* Lock video to perfect 16:9 ratio at the top */
+            /* Admin specific mobile styles */
+            header {
+                position: relative; /* For absolute positioning of the mobile admin menu */
+            }
+
+            .header-toggle-btn {
+                display: block; /* Show on mobile */
+                background: transparent;
+                color: var(--text-main);
+                border: none;
+                padding: 5px 10px;
+                font-size: 1.5rem;
+                cursor: pointer;
+                margin-left: auto; /* Push to the right */
+            }
+
             .player-area { padding: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; flex-shrink: 0; } 
             .video-wrapper { border-radius: 0; } 
             
             /* Sidebar takes the exact remaining screen height */
             .sidebar { flex-grow: 1; height: 0; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); } 
             
+            .menu-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 240;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.4s ease;
+            }
+
+            .menu-backdrop.active {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .mobile-sliding-menu {
+                position: fixed;
+                top: 0;
+                right: -280px;
+                width: 280px;
+                height: 100vh;
+                background: var(--card-bg);
+                z-index: 250;
+                padding: 30px 25px;
+                box-sizing: border-box;
+                /* box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); */
+                display: flex;
+                flex-direction: column;
+                transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .mobile-sliding-menu.active {
+                right: 0;
+            }
+
             /* Fix Modals for narrow phone screens */
             .modal-content { width: 90%; max-width: 320px; padding: 25px; box-sizing: border-box; }
         }
@@ -285,7 +336,16 @@
 
     <header>
         <h1 class="logo">STREAMLINE.</h1>
-        <a href="/" class="header-link">← Back to Player</a>
+        <!-- Desktop Admin Link -->
+        <a href="/" class="header-link">← Back to Player</a> 
+        <button class="header-toggle-btn" style="display: none;" onclick="toggleAdminMenu()">☰</button>
+
+        <div id="adminMenuBackdrop" class="menu-backdrop" onclick="toggleAdminMenu()"></div>
+
+        <div id="adminSlidingMenu" class="mobile-sliding-menu">
+            <button style="align-self: flex-end; background: transparent; border: none; color: white; font-size: 1.8rem; cursor: pointer; margin-bottom: 30px;" onclick="toggleAdminMenu()">✕</button>
+            <a href="/" style="background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center;">← Back to Player</a>
+        </div>
     </header>
 
     <main class="admin-container">

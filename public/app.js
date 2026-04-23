@@ -19,8 +19,14 @@ async function verify() {
             dynamicSecretKey = data.clientKey; 
             currentUserId = String(data.id); 
             
-            document.getElementById('currentUserDisplay').innerText = `👤 ${data.username}`;
-            document.getElementById('adminLink').style.display = data.role === 'admin' ? 'inline-block' : 'none';
+            // Update desktop header elements
+            document.getElementById('currentUserDisplay').innerText = `👤 ${data.username}`; // Desktop
+            document.getElementById('adminLink').style.display = data.role === 'admin' ? 'inline-block' : 'none'; // Desktop
+
+            // Update mobile header elements
+            document.getElementById('mobileUserDisplay').innerText = `👤 ${data.username}`;
+            document.getElementById('mobileAdminLink').style.display = data.role === 'admin' ? 'block' : 'none';
+
             document.getElementById('loginModal').style.display = 'none';
             document.getElementById('playerUI').style.display = 'grid';
 
@@ -200,6 +206,10 @@ function renderCurrentPlaylist() {
     const selected = allPlaylists[index];
     if (!selected) return;
 
+    document.getElementById('channelSearch').value = '';
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
+
     const categories = [...new Set(selected.channels.map(c => c.cat || 'Uncategorized'))];
     document.getElementById('categoryFilter').innerHTML = '<option value="all">All Categories</option>' + 
         categories.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -210,6 +220,10 @@ function renderCurrentPlaylist() {
 function switchPlaylist() {
     const selector = document.getElementById('playlistSelector');
     if (!selector || allPlaylists.length === 0) return;
+
+    document.getElementById('channelSearch').value = '';
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
 
     const index = selector.value;
     const selectedPlaylist = allPlaylists[index];
@@ -244,13 +258,29 @@ function switchPlaylist() {
 function filterChannels() {
     const playlistIndex = document.getElementById('playlistSelector').value;
     const selectedCat = document.getElementById('categoryFilter').value;
+    const searchQuery = document.getElementById('channelSearch').value.toLowerCase();
     const channels = allPlaylists[playlistIndex].channels || [];
 
-    const filtered = selectedCat === 'all' ? 
-        channels : 
-        channels.filter(c => (c.cat || 'Uncategorized') === selectedCat);
+    // Show/hide the clear button based on search input length
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) {
+        clearBtn.style.display = searchQuery.length > 0 ? 'block' : 'none';
+    }
+
+    const filtered = channels.filter(c => {
+        const matchesCat = selectedCat === 'all' || (c.cat || 'Uncategorized') === selectedCat;
+        const matchesSearch = c.name.toLowerCase().includes(searchQuery);
+        return matchesCat && matchesSearch;
+    });
 
     renderChannels(filtered);
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('channelSearch');
+    searchInput.value = '';
+    filterChannels();
+    searchInput.focus();
 }
 
 function renderChannels(channels) {
@@ -262,7 +292,7 @@ function renderChannels(channels) {
         const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
         return `
             <li class="channel-card" onclick="playChannel('${channel.url}', '${keyStr}')">
-                <img src="${logo}" class="channel-logo" loading="lazy">
+                <img src="${logo}" class="channel-logo" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/54/1e293b/ffffff?text=TV';">
                 <div class="channel-meta">
                     <span class="channel-name">${channel.name}</span>
                     <span class="channel-cat">${channel.cat || 'Uncategorized'}</span>
@@ -274,6 +304,18 @@ function renderChannels(channels) {
 async function playChannel(url, encodedKeyStr, isAutoplay = false) {
     lastPlayedUrl = url;
     lastPlayedKey = encodedKeyStr;
+
+    // Update Now Playing Overlay
+    for (const pl of allPlaylists) {
+        const match = pl.channels.find(c => c.url === url);
+        if (match) {
+            document.getElementById('nowPlayingName').innerText = match.name;
+            document.getElementById('nowPlayingCat').innerText = match.cat || 'Uncategorized';
+            document.getElementById('nowPlayingLogo').src = match.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
+            break;
+        }
+    }
+
     const video = document.getElementById('video');
     
     // Clear any previous error overlays immediately
@@ -282,6 +324,12 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
     if (currentUserId) {
         localStorage.setItem(`lastChannel_${currentUserId}`, url);
         localStorage.setItem(`lastKey_${currentUserId}`, encodedKeyStr || '');
+    }
+
+    // Auto-close sidebar on mobile after selection
+    const sidebar = document.querySelector('.sidebar');
+    if (window.innerWidth <= 1100 && sidebar && sidebar.classList.contains('active')) {
+        toggleSidebar();
     }
 
     try {
@@ -357,6 +405,21 @@ function unmuteVideo() {
     video.muted = false;
     video.volume = 1.0;
     document.getElementById('unmuteHint').style.display = 'none';
+}
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const btn = document.getElementById('mobileMenuBtn');
+    if (!sidebar || !btn) return;
+    const isActive = sidebar.classList.toggle('active');
+    btn.innerText = isActive ? '✕ Close' : '☰ Channels';
+}
+
+function toggleHeaderMenu() {
+    const menu = document.getElementById('mobileSlidingMenu');
+    const backdrop = document.getElementById('menuBackdrop');
+    if (menu) menu.classList.toggle('active');
+    if (backdrop) backdrop.classList.toggle('active');
 }
 
 document.addEventListener('DOMContentLoaded', verify);
