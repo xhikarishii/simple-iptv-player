@@ -350,4 +350,4 @@ function checkDevTools() {
     }
     return false;
 }
-//setInterval(checkDevTools, 1000);
+setInterval(checkDevTools, 1000);
