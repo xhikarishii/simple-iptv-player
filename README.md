@@ -1,6 +1,6 @@
 # 📺 Streamline IPTV Web Player
 
-A containerized IPTV web application designed for high-performance streaming, robust security, and multi-user management. This stack is optimized to bypass common browser security restrictions while maintaining a sleek, modern UI.
+A premium, containerized IPTV web application designed for high-performance streaming, robust security, and multi-user management. This stack is optimized to bypass common browser security restrictions while maintaining a sleek, modern UI.
 
 ---
 
@@ -29,7 +29,6 @@ A containerized IPTV web application designed for high-performance streaming, ro
 * **Mobile-First Glassmorphism:** Fully responsive UI featuring a side-sliding navigation drawer and accordion-style channel lists for mobile devices.
 * **Shared Playlists:** Admins can assign playlists to primary owners or share them across multiple secondary users.
 * **Integrated Code Editor:** Built-in **Ace Editor** with JSON syntax highlighting for professional-grade playlist management.
-* **Mobile-First Design:** Fully responsive Glassmorphism UI that adapts for Cinema Mode on Desktop and App-like performance on Mobile.
 * **M3U to JSON Converter:** Powerful admin tool to import raw M3U content. Automatically extracts channel names, logos, categories, EPG IDs (`tvg-id`), and complex ClearKey license strings.
 * **JSON Validation:** Built-in validation tools to ensure playlist data is correctly formatted before saving.
 
