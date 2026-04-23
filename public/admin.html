@@ -391,6 +391,8 @@
             <select id="playlistShared" multiple style="height: 100px; padding: 8px;">
             </select>
 
+            <input type="text" id="newPlaylistEpgUrl" placeholder="EPG URLs (Optional, comma-separated)" style="margin-top: 15px;">
+
             <div id="newPlaylistChannels"
                 style="height: 250px; width: 100%; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
             </div>
@@ -441,6 +443,9 @@
                 (Hold Ctrl/Cmd to multi-select)</label>
             <select id="editPlaylistShared" multiple style="height: 100px; padding: 8px;">
             </select>
+
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">EPG URLs (comma-separated)</label>
+            <input type="text" id="editPlaylistEpgUrl" placeholder="EPG URLs (Optional, comma-separated)">
 
             <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Channel Data
                 (JSON)</label>

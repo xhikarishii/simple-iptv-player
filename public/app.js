@@ -5,6 +5,7 @@ let dynamicSecretKey = null;
 let lastPlayedUrl = null;
 let lastPlayedKey = null;
 let currentUserId = null;
+let epgDataCache = {}; // Cache for parsed EPG data
 
 async function verify() {
     const token = localStorage.getItem('jwtToken');
@@ -14,6 +15,8 @@ async function verify() {
         const res = await fetch('/api/auth/check', { headers: { 'Authorization': `Bearer ${token}` } });
         if (res.ok) {
             const data = await res.json();
+            
+            toggleAppLoader(true);
             
             // 1. Set global session data FIRST
             dynamicSecretKey = data.clientKey; 
@@ -33,8 +36,10 @@ async function verify() {
             // 2. Start the player engine
             await initApp(); 
             
-            // 3. Load data and trigger the resume logic
+            // 3. Load data and trigger the resume logic (epg loading happens inside)
             await loadPlaylists(); 
+
+            toggleAppLoader(false);
         } else { showLogin(); }
     } catch (e) { showLogin(); }
 }
@@ -42,6 +47,8 @@ async function verify() {
 function showLogin() {
     localStorage.removeItem('jwtToken');
     document.getElementById('playerUI').style.display = 'none';
+    toggleAppLoader(false);
+
     document.getElementById('loginModal').style.display = 'flex';
 
     if (typeof player !== 'undefined' && player) {
@@ -78,6 +85,7 @@ async function submitLogin() {
     });
     if (res.ok) {
         const data = await res.json();
+        toggleAppLoader(true);
         localStorage.setItem('jwtToken', data.token);
         verify();
     } else {
@@ -150,7 +158,7 @@ function decryptPayload(encryptedPayload) {
 }
 
 async function loadPlaylists() {
-    if (checkDevTools()) return; 
+    //if (checkDevTools()) return; 
 
     try {
         const res = await fetch('/api/playlists', { 
@@ -160,6 +168,7 @@ async function loadPlaylists() {
         
         if (data.payload) {
             allPlaylists = decryptPayload(data.payload);
+            await loadAllEpgData(allPlaylists); // Load EPG data for all playlists
         }
 
         const playlistSelector = document.getElementById('playlistSelector');
@@ -199,6 +208,118 @@ async function loadPlaylists() {
     } catch (e) {
         console.error("Load error:", e);
     }
+}
+
+/**
+ * Parses XMLTV date format (YYYYMMDDHHMMSS [+-]HHMM) into a JS Date object
+ */
+function parseXmltvDate(dateStr) {
+    if (!dateStr) return null;
+    // Regex: YYYYMMDDHHMMSS (optional seconds) (optional timezone offset)
+    const match = dateStr.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?(?:\s*([+-]\d{2,4}))?$/);
+    if (match) {
+        const [_, y, m, d, h, min, s, tz] = match;
+        let iso = `${y}-${m}-${d}T${h}:${min}:${s || '00'}`;
+
+        if (tz) {
+            const formattedTz = tz.length === 3 ? tz + ":00" : tz.slice(0, 3) + ":" + tz.slice(3);
+            iso += formattedTz;
+        } else {
+            // If no timezone, assume UTC to avoid local timezone issues
+            iso += 'Z'; // Or could assume local, but UTC is safer for consistent comparison
+        }
+        
+        const date = new Date(iso);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    return null;
+}
+
+/**
+ * Formats a Date object to HH:MM
+ */
+function formatTime(date) {
+    if (!date) return '--:--';
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+async function loadAllEpgData(playlists) {
+    const uniqueEpgUrls = [...new Set(playlists.flatMap(p => p.epg ? p.epg.split(',').map(u => u.trim()).filter(Boolean) : []))];
+    const parser = new DOMParser();
+
+    for (const epgUrl of uniqueEpgUrls) {
+        if (epgDataCache[epgUrl]) continue; // Already loaded
+
+        try {
+            // Use the proxy for EPG URLs as well, as they can be HTTP or external
+            const proxiedEpgUrl = window.location.origin + '/proxy/' + epgUrl;
+            const res = await fetch(proxiedEpgUrl);
+            if (!res.ok) throw new Error(`Failed to fetch EPG from ${epgUrl}`);
+
+            const buffer = await res.arrayBuffer();
+            let xmlText;
+
+            if (epgUrl.endsWith('.gz')) {
+                try {
+                    const decompressed = pako.ungzip(new Uint8Array(buffer));
+                    xmlText = new TextDecoder().decode(decompressed);
+                } catch (err) {
+                    console.warn(`Pako decompression failed for ${epgUrl}, attempting to read as plain text.`, err);
+                    xmlText = new TextDecoder().decode(buffer);
+                }
+            } else {
+                xmlText = new TextDecoder().decode(buffer);
+            }
+
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            const programmes = xmlDoc.getElementsByTagName('programme');
+
+            const parsedEpg = {};
+
+            // Populate programmes using the 'channel' attribute which maps to our epgId
+            for (let i = 0; i < programmes.length; i++) {
+                const programme = programmes[i];
+                const channelId = programme.getAttribute('channel');
+                if (!channelId) continue;
+
+                if (!parsedEpg[channelId]) parsedEpg[channelId] = [];
+
+                const start = parseXmltvDate(programme.getAttribute('start'));
+                const stop = parseXmltvDate(programme.getAttribute('stop'));
+                const title = programme.getElementsByTagName('title')[0]?.textContent || 'No Title';
+                const desc = programme.getElementsByTagName('desc')[0]?.textContent || '';
+
+                parsedEpg[channelId].push({ start, stop, title, desc });
+            }
+            epgDataCache[epgUrl] = parsedEpg;
+        } catch (e) {
+            console.error(`Error loading or parsing EPG from ${epgUrl}:`, e);
+        }
+    }
+}
+
+function getProgramForChannel(epgId, epgUrlString) {
+    if (!epgId || !epgUrlString) return null;
+    const now = new Date();
+    const urls = epgUrlString ? epgUrlString.split(',').map(u => u.trim()).filter(Boolean) : [];
+
+    for (const url of urls) {
+        const cache = epgDataCache[url];
+        if (!cache) continue;
+
+        // Try case-insensitive lookup
+        const cacheKey = Object.keys(cache).find(k => k.trim().toLowerCase() === String(epgId).trim().toLowerCase());
+        const channelEpg = cacheKey ? cache[cacheKey] : null;
+        
+        if (channelEpg) {
+            for (const program of channelEpg) {
+                if (program.start && program.stop && now >= program.start && now < program.stop) {
+                    return program;
+                }
+            }
+        }
+    }
+    return null;
 }
 
 function renderCurrentPlaylist() {
@@ -287,14 +408,22 @@ function renderChannels(channels) {
     const listElement = document.getElementById('playlist');
     if (!listElement) return;
 
+    const playlistIndex = document.getElementById('playlistSelector').value;
+    const epgUrl = allPlaylists[playlistIndex]?.epg || '';
+
     listElement.innerHTML = channels.map(channel => {
         const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
         const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
+        
+        const program = getProgramForChannel(channel.epgId, epgUrl);
+        const programHtml = program ? `<span class="channel-program">🔴 ${program.title}</span>` : '';
+
         return `
             <li class="channel-card" onclick="playChannel('${channel.url}', '${keyStr}')">
                 <img src="${logo}" class="channel-logo" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/54/1e293b/ffffff?text=TV';">
                 <div class="channel-meta">
                     <span class="channel-name">${channel.name}</span>
+                    ${programHtml}
                     <span class="channel-cat">${channel.cat || 'Uncategorized'}</span>
                 </div>
             </li>`;
@@ -302,34 +431,40 @@ function renderChannels(channels) {
 }
 
 async function playChannel(url, encodedKeyStr, isAutoplay = false) {
-    lastPlayedUrl = url;
-    lastPlayedKey = encodedKeyStr;
-
     // Update Now Playing Overlay
+    let currentPlaylistEpgUrl = '';
     for (const pl of allPlaylists) {
         const match = pl.channels.find(c => c.url === url);
         if (match) {
             document.getElementById('nowPlayingName').innerText = match.name;
             document.getElementById('nowPlayingCat').innerText = match.cat || 'Uncategorized';
             document.getElementById('nowPlayingLogo').src = match.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
+            
+            // Update EPG program info
+            currentPlaylistEpgUrl = pl.epg;
+            const program = getProgramForChannel(match.epgId, currentPlaylistEpgUrl);
+            const programInfo = document.getElementById('nowPlayingProgram');
+            const progressContainer = document.getElementById('programProgressContainer');
+
+            if (programInfo) {
+                if (program) {
+                    programInfo.innerText = `🔴 ${program.title}`;
+                    if (progressContainer) {
+                        const now = new Date();
+                        const pct = Math.min(Math.max(((now - program.start) / (program.stop - program.start)) * 100, 0), 100);
+                        document.getElementById('programProgressFill').style.width = pct + '%';
+                        document.getElementById('programStartTime').innerText = formatTime(program.start);
+                        document.getElementById('programEndTime').innerText = formatTime(program.stop);
+                        progressContainer.style.display = 'block';
+                    }
+                } else {
+                    programInfo.innerText = 'Live Stream';
+                    if (progressContainer) progressContainer.style.display = 'none';
+                }
+            }
+
             break;
         }
-    }
-
-    const video = document.getElementById('video');
-    
-    // Clear any previous error overlays immediately
-    document.getElementById('videoErrorOverlay').style.display = 'none';
-
-    if (currentUserId) {
-        localStorage.setItem(`lastChannel_${currentUserId}`, url);
-        localStorage.setItem(`lastKey_${currentUserId}`, encodedKeyStr || '');
-    }
-
-    // Auto-close sidebar on mobile after selection
-    const sidebar = document.querySelector('.sidebar');
-    if (window.innerWidth <= 1100 && sidebar && sidebar.classList.contains('active')) {
-        toggleSidebar();
     }
 
     try {
@@ -343,6 +478,12 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
         if (currentUserId) {
             localStorage.setItem(`lastChannel_${currentUserId}`, url);
             localStorage.setItem(`lastKey_${currentUserId}`, encodedKeyStr || '');
+        }
+
+        // Auto-close sidebar on mobile after selection
+        const sidebar = document.querySelector('.sidebar');
+        if (window.innerWidth <= 1100 && sidebar && sidebar.classList.contains('active')) {
+            toggleSidebar();
         }
 
         await player.unload();
@@ -415,6 +556,13 @@ function toggleSidebar() {
     btn.innerText = isActive ? '✕ Close' : '☰ Channels';
 }
 
+function toggleAppLoader(show) {
+    const loader = document.getElementById('appLoader');
+    if (!loader) return;
+    loader.style.opacity = show ? '1' : '0';
+    loader.style.visibility = show ? 'visible' : 'hidden';
+}
+
 function toggleHeaderMenu() {
     const menu = document.getElementById('mobileSlidingMenu');
     const backdrop = document.getElementById('menuBackdrop');
@@ -449,4 +597,4 @@ function checkDevTools() {
     }
     return false;
 }
-setInterval(checkDevTools, 1000);
+//setInterval(checkDevTools, 1000);

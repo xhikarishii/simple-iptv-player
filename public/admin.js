@@ -223,13 +223,14 @@ function renderPlaylists(playlists) {
 async function addPlaylist() {
     const name = document.getElementById('newPlaylistName').value;
     const userId = document.getElementById('playlistUser').value;
+    const epg = document.getElementById('newPlaylistEpgUrl').value;
     const channelsStr = newEditor.getValue();
 
     // Extract array of selected IDs
     const sharedOpts = document.getElementById('playlistShared').selectedOptions;
     const sharedWith = Array.from(sharedOpts).map(opt => parseInt(opt.value));
 
-    if (!name || !userId || !channelsStr) return alert('Fill all fields');
+    if (!name || !userId || !channelsStr) return alert('Please fill in playlist name, owner, and channel data.');
 
     try {
         const channels = JSON.parse(channelsStr);
@@ -240,12 +241,14 @@ async function addPlaylist() {
                 userId,
                 name,
                 channels,
-                sharedWith
+                sharedWith,
+                epg
             })
         });
         if (res.ok) {
             document.getElementById('newPlaylistName').value = '';
             document.getElementById('playlistShared').selectedIndex = -1; // Clear selection
+            document.getElementById('newPlaylistEpgUrl').value = '';
             newEditor.setValue('[\n  {\n    "name": "Channel 1",\n    "logo": "http://img.com/logo.png",\n    "url": "http://stream.com/live.m3u8",\n    "cat": "Sports",\n    "key": "keyID:keyVal"\n  }\n]', -1);
             loadData();
         } else alert('Error adding playlist');
@@ -260,6 +263,7 @@ function openEditPlaylistModal(id) {
 
     document.getElementById('editPlaylistId').value = playlistObj.id;
     document.getElementById('editPlaylistName').value = playlistObj.name;
+    document.getElementById('editPlaylistEpgUrl').value = playlistObj.epg || '';
     document.getElementById('editPlaylistUser').value = playlistObj.userId;
 
     // Set the selected options in the multi-select box
@@ -281,6 +285,7 @@ async function submitEditPlaylist() {
     const id = document.getElementById('editPlaylistId').value;
     const name = document.getElementById('editPlaylistName').value;
     const userId = document.getElementById('editPlaylistUser').value;
+    const epg = document.getElementById('editPlaylistEpgUrl').value;
     const channelsStr = editEditor.getValue();
 
     // Extract array of selected IDs
@@ -296,7 +301,8 @@ async function submitEditPlaylist() {
                 userId,
                 name,
                 channels,
-                sharedWith
+                sharedWith,
+                epg
             })
         });
         if (res.ok) {
@@ -333,6 +339,10 @@ function convertAndLoadM3U() {
             
             // Extract tvg-logo
             const logoMatch = line.match(/tvg-logo="([^"]*)"/i);
+            // Extract EPG ID (Check tvg-id, then tvg-name, then channel-id)
+            const tvgIdMatch = line.match(/tvg-id="([^"]*)"/i) || 
+                               line.match(/tvg-name="([^"]*)"/i) || 
+                               line.match(/channel-id="([^"]*)"/i);
             // Extract group-title (category)
             const groupMatch = line.match(/group-title="([^"]*)"/i);
             // Extract name (text after the last comma)
@@ -341,6 +351,7 @@ function convertAndLoadM3U() {
             currentChannel.name = nameMatch ? nameMatch[1].trim() : "Unknown Channel";
             currentChannel.logo = logoMatch ? logoMatch[1] : "";
             currentChannel.cat = groupMatch ? groupMatch[1] : "General";
+            currentChannel.epgId = tvgIdMatch ? tvgIdMatch[1] : "";
             currentChannel.url = "";
             currentChannel.key = "";
         } else if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {

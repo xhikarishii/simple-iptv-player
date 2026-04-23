@@ -54,8 +54,9 @@ function encryptPayload(text) {
 const db = new sqlite3.Database(path.join(__dirname, 'data', 'iptv.db'));
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT)`);
-    db.run(`CREATE TABLE IF NOT EXISTS playlists (id INTEGER PRIMARY KEY, userId INTEGER, name TEXT, channels TEXT, sharedWith TEXT DEFAULT '[]')`);
+    db.run(`CREATE TABLE IF NOT EXISTS playlists (id INTEGER PRIMARY KEY, userId INTEGER, name TEXT, channels TEXT, sharedWith TEXT DEFAULT '[]', epg TEXT DEFAULT '')`);
 
+    db.run(`ALTER TABLE playlists ADD COLUMN epg TEXT DEFAULT ''`, (err) => {}); // Add EPG column if it doesn't exist
     // Safely add the column to existing databases (ignores the error if it already exists)
     db.run(`ALTER TABLE playlists ADD COLUMN sharedWith TEXT DEFAULT '[]'`, (err) => {});
 
@@ -184,11 +185,12 @@ app.post('/api/playlists', authenticateToken, requireAdmin, (req, res) => {
         userId,
         name,
         channels,
-        sharedWith
+        sharedWith,
+        epg
     } = req.body;
     const sharedStr = JSON.stringify(sharedWith || []);
-    db.run(`INSERT INTO playlists (userId, name, channels, sharedWith) VALUES (?, ?, ?, ?)`,
-        [userId, name, JSON.stringify(channels), sharedStr],
+    db.run(`INSERT INTO playlists (userId, name, channels, sharedWith, epg) VALUES (?, ?, ?, ?, ?)`,
+        [userId, name, JSON.stringify(channels), sharedStr, epg || ''],
         () => res.sendStatus(201)
     );
 });
@@ -198,11 +200,12 @@ app.put('/api/playlists/:id', authenticateToken, requireAdmin, (req, res) => {
         userId,
         name,
         channels,
-        sharedWith
+        sharedWith,
+        epg
     } = req.body;
     const sharedStr = JSON.stringify(sharedWith || []);
-    db.run(`UPDATE playlists SET userId=?, name=?, channels=?, sharedWith=? WHERE id=?`,
-        [userId, name, JSON.stringify(channels), sharedStr, req.params.id],
+    db.run(`UPDATE playlists SET userId=?, name=?, channels=?, sharedWith=?, epg=? WHERE id=?`,
+        [userId, name, JSON.stringify(channels), sharedStr, epg || '', req.params.id],
         () => res.sendStatus(200)
     );
 });
