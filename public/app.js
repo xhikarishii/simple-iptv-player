@@ -6,6 +6,7 @@ let lastPlayedUrl = null;
 let lastPlayedKey = null;
 let currentUserId = null;
 let epgDataCache = {}; // Cache for parsed EPG data
+let epgUpdateInterval = null;
 
 async function verify() {
     const token = localStorage.getItem('jwtToken');
@@ -54,6 +55,8 @@ function showLogin() {
     if (typeof player !== 'undefined' && player) {
         player.unload(); // Instantly kills the active stream and audio
     }
+
+    if (epgUpdateInterval) clearInterval(epgUpdateInterval);
 
     // Wipe sensitive data and reset state
     allChannelsData = [];
@@ -158,7 +161,7 @@ function decryptPayload(encryptedPayload) {
 }
 
 async function loadPlaylists() {
-    //if (checkDevTools()) return; 
+    if (checkDevTools()) return; 
 
     try {
         const res = await fetch('/api/playlists', { 
@@ -322,6 +325,54 @@ function getProgramForChannel(epgId, epgUrlString) {
     return null;
 }
 
+function updateNowPlayingEPG(isInitialLoad = false) {
+    if (!lastPlayedUrl) return;
+
+    let match = null;
+    let playlistEpg = '';
+    for (const pl of allPlaylists) {
+        match = pl.channels.find(c => c.url === lastPlayedUrl);
+        if (match) {
+            playlistEpg = pl.epg;
+            break;
+        }
+    }
+
+    if (!match) return;
+
+    const program = getProgramForChannel(match.epgId, playlistEpg);
+    const programInfo = document.getElementById('nowPlayingProgram');
+    const progressContainer = document.getElementById('programProgressContainer');
+    const overlay = document.getElementById('nowPlayingOverlay');
+
+    if (programInfo) {
+        const oldTitle = programInfo.dataset.currentTitle || '';
+        const newTitle = program ? program.title : 'Live Stream';
+
+        if (program) {
+            programInfo.innerText = `🔴 ${program.title}`;
+            if (progressContainer) {
+                const now = new Date();
+                const pct = Math.min(Math.max(((now - program.start) / (program.stop - program.start)) * 100, 0), 100);
+                document.getElementById('programProgressFill').style.width = pct + '%';
+                document.getElementById('programStartTime').innerText = formatTime(program.start);
+                document.getElementById('programEndTime').innerText = formatTime(program.stop);
+                progressContainer.style.display = 'block';
+            }
+        } else {
+            programInfo.innerText = 'Live Stream';
+            if (progressContainer) progressContainer.style.display = 'none';
+        }
+
+        // Detect program change and show overlay briefly
+        if (!isInitialLoad && oldTitle && oldTitle !== newTitle && overlay && window.innerWidth > 1100) {
+            overlay.classList.add('show-temporary');
+            setTimeout(() => overlay.classList.remove('show-temporary'), 8000);
+        }
+        programInfo.dataset.currentTitle = newTitle;
+    }
+}
+
 function renderCurrentPlaylist() {
     const index = document.getElementById('playlistSelector').value;
     const selected = allPlaylists[index];
@@ -431,45 +482,26 @@ function renderChannels(channels) {
 }
 
 async function playChannel(url, encodedKeyStr, isAutoplay = false) {
+    lastPlayedUrl = url;
+    lastPlayedKey = encodedKeyStr;
+
+    if (epgUpdateInterval) clearInterval(epgUpdateInterval);
+
     // Update Now Playing Overlay
-    let currentPlaylistEpgUrl = '';
     for (const pl of allPlaylists) {
         const match = pl.channels.find(c => c.url === url);
         if (match) {
             document.getElementById('nowPlayingName').innerText = match.name;
             document.getElementById('nowPlayingCat').innerText = match.cat || 'Uncategorized';
             document.getElementById('nowPlayingLogo').src = match.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
-            
-            // Update EPG program info
-            currentPlaylistEpgUrl = pl.epg;
-            const program = getProgramForChannel(match.epgId, currentPlaylistEpgUrl);
-            const programInfo = document.getElementById('nowPlayingProgram');
-            const progressContainer = document.getElementById('programProgressContainer');
-
-            if (programInfo) {
-                if (program) {
-                    programInfo.innerText = `🔴 ${program.title}`;
-                    if (progressContainer) {
-                        const now = new Date();
-                        const pct = Math.min(Math.max(((now - program.start) / (program.stop - program.start)) * 100, 0), 100);
-                        document.getElementById('programProgressFill').style.width = pct + '%';
-                        document.getElementById('programStartTime').innerText = formatTime(program.start);
-                        document.getElementById('programEndTime').innerText = formatTime(program.stop);
-                        progressContainer.style.display = 'block';
-                    }
-                } else {
-                    programInfo.innerText = 'Live Stream';
-                    if (progressContainer) progressContainer.style.display = 'none';
-                }
-            }
-
+            document.getElementById('nowPlayingProgram').dataset.currentTitle = ''; // Reset tracker
+            updateNowPlayingEPG(true);
+            epgUpdateInterval = setInterval(updateNowPlayingEPG, 30000); // Update every 30s
             break;
         }
     }
 
     try {
-        lastPlayedUrl = url;
-        lastPlayedKey = encodedKeyStr;
         const video = document.getElementById('video');
         const hint = document.getElementById('unmuteHint');
         
