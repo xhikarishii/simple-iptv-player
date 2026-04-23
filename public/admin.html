@@ -66,6 +66,54 @@
             color: var(--text-main);
         }
 
+        .header-toggle-btn {
+            display: none; /* Hidden by default on desktop */
+        }
+
+        .menu-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 240;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .menu-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .mobile-sliding-menu {
+            position: fixed;
+            top: 0;
+            right: -280px;
+            width: 280px;
+            height: 100vh;
+            background: var(--card-bg);
+            z-index: 250;
+            padding: 30px 25px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-sliding-menu.active {
+            right: 0;
+        }
+
+        .menu-close-btn {
+            align-self: flex-end;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.8rem;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
         .admin-container {
             max-width: 1200px;
             margin: 40px auto;
@@ -76,20 +124,16 @@
         }
 
         @media (max-width: 1100px) { 
-            body { overflow: hidden; position: fixed; width: 100%; height: 100%; }
-            
-            /* Convert grid to vertical flexbox */
-            .app-container { display: flex; flex-direction: column; height: 100dvh; } 
-            
+            .admin-container {
+                grid-template-columns: 1fr;
+                margin: 20px auto;
+            }
+
             /* Compact Header */
             header { padding: 10px 15px; height: 60px; box-sizing: border-box; }
-            .logo { font-size: 1.2rem; }
-            header button, header a { padding: 6px 12px; font-size: 0.8rem; }
-            
-            /* Lock video to perfect 16:9 ratio at the top */
-            /* Admin specific mobile styles */
-            header {
-                position: relative; /* For absolute positioning of the mobile admin menu */
+            .logo { font-size: 1.2rem; flex-shrink: 0; }
+            header > .header-link {
+                display: none !important;
             }
 
             .header-toggle-btn {
@@ -100,52 +144,21 @@
                 padding: 5px 10px;
                 font-size: 1.5rem;
                 cursor: pointer;
+                width: auto;
                 margin-left: auto; /* Push to the right */
-            }
-
-            .player-area { padding: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; flex-shrink: 0; } 
-            .video-wrapper { border-radius: 0; } 
-            
-            /* Sidebar takes the exact remaining screen height */
-            .sidebar { flex-grow: 1; height: 0; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); } 
-            
-            .menu-backdrop {
-                position: fixed;
-                inset: 0;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 240;
-                opacity: 0;
-                pointer-events: none;
-                transition: opacity 0.4s ease;
-            }
-
-            .menu-backdrop.active {
-                opacity: 1;
-                pointer-events: auto;
-            }
-
-            .mobile-sliding-menu {
-                position: fixed;
-                top: 0;
-                right: -280px;
-                width: 280px;
-                height: 100vh;
-                background: var(--card-bg);
-                z-index: 250;
-                padding: 30px 25px;
-                box-sizing: border-box;
-                /* box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); */
-                display: flex;
-                flex-direction: column;
-                transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            }
-
-            .mobile-sliding-menu.active {
-                right: 0;
             }
 
             /* Fix Modals for narrow phone screens */
             .modal-content { width: 90%; max-width: 320px; padding: 25px; box-sizing: border-box; }
+
+            .list-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .action-group { width: 100%; justify-content: flex-start; }
+            .action-group button { flex: 1; text-align: center; }
         }
 
         .card {
@@ -335,18 +348,18 @@
 <body>
 
     <header>
-        <h1 class="logo">STREAMLINE.</h1>
+        <div class="logo">STREAMLINE.</div>
         <!-- Desktop Admin Link -->
-        <a href="/" class="header-link">← Back to Player</a> 
-        <button class="header-toggle-btn" style="display: none;" onclick="toggleAdminMenu()">☰</button>
-
-        <div id="adminMenuBackdrop" class="menu-backdrop" onclick="toggleAdminMenu()"></div>
-
-        <div id="adminSlidingMenu" class="mobile-sliding-menu">
-            <button style="align-self: flex-end; background: transparent; border: none; color: white; font-size: 1.8rem; cursor: pointer; margin-bottom: 30px;" onclick="toggleAdminMenu()">✕</button>
-            <a href="/" style="background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center;">← Back to Player</a>
-        </div>
+        <a href="/" class="header-link">← Back to Player</a>
+        <button class="header-toggle-btn" onclick="toggleAdminMenu()">☰</button>
     </header>
+
+    <div id="adminMenuBackdrop" class="menu-backdrop" onclick="toggleAdminMenu()"></div>
+
+    <div id="adminSlidingMenu" class="mobile-sliding-menu">
+        <button class="menu-close-btn" onclick="toggleAdminMenu()">✕</button>
+        <a href="/" style="background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center;">← Back to Player</a>
+    </div>
 
     <main class="admin-container">
 
@@ -382,7 +395,13 @@
                 style="height: 250px; width: 100%; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
             </div>
 
+            <button onclick="validateNewPlaylistJson()" style="background: var(--info); margin-bottom: 10px;">Validate JSON</button>
             <button onclick="addPlaylist()" style="background: var(--success);">Save Playlist</button>
+
+            <h4 style="margin-top: 40px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">M3U to JSON Converter</h4>
+            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px;">Paste M3U content below to convert and load it into the editor above.</p>
+            <textarea id="m3uInput" placeholder="#EXTM3U..." style="width: 100%; height: 120px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; padding: 10px; font-family: monospace; box-sizing: border-box; resize: vertical;"></textarea>
+            <button onclick="convertAndLoadM3U()" style="background: var(--info); margin-top: 10px;">Convert & Load to Editor</button>
         </div>
     </main>
 
@@ -430,6 +449,7 @@
                 style="height: 300px; width: 100%; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
             </div>
 
+            <button onclick="validateEditPlaylistJson()" style="background: var(--info); margin-top: 10px;">Validate JSON</button>
             <button onclick="submitEditPlaylist()" style="background: var(--primary); margin-top: 10px;">Update
                 Playlist</button>
         </div>

@@ -318,6 +318,91 @@ async function deletePlaylist(id) {
     else alert('Error deleting playlist');
 }
 
+function convertAndLoadM3U() {
+    const m3uText = document.getElementById('m3uInput').value;
+    if (!m3uText) return alert("Please paste M3U content first.");
+
+    const lines = m3uText.split('\n');
+    const channels = [];
+    let currentChannel = null;
+
+    lines.forEach(line => {
+        line = line.trim();
+        if (line.startsWith('#EXTINF:')) {
+            currentChannel = {};
+            
+            // Extract tvg-logo
+            const logoMatch = line.match(/tvg-logo="([^"]*)"/i);
+            // Extract group-title (category)
+            const groupMatch = line.match(/group-title="([^"]*)"/i);
+            // Extract name (text after the last comma)
+            const nameMatch = line.match(/,(.*)$/);
+
+            currentChannel.name = nameMatch ? nameMatch[1].trim() : "Unknown Channel";
+            currentChannel.logo = logoMatch ? logoMatch[1] : "";
+            currentChannel.cat = groupMatch ? groupMatch[1] : "General";
+            currentChannel.url = "";
+            currentChannel.key = "";
+        } else if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
+            if (currentChannel) {
+                const rawKey = line.split('=')[1].trim();
+                try {
+                    // Handle complex JSON license keys (Kodi/ClearKey format)
+                    if (rawKey.startsWith('{')) {
+                        const keyObj = JSON.parse(rawKey);
+                        if (keyObj.keys && keyObj.keys[0]) {
+                            const k = keyObj.keys[0];
+                            // Extract KID and Key to "kid:key" format for Shaka Player
+                            if (k.kid && k.k) {
+                                currentChannel.key = `${k.kid}:${k.k}`;
+                            } else {
+                                currentChannel.key = rawKey;
+                            }
+                        } else {
+                            currentChannel.key = rawKey;
+                        }
+                    } else {
+                        currentChannel.key = rawKey;
+                    }
+                } catch (e) {
+                    // Not JSON, use as-is (could be a license URL or simple kid:key string)
+                    currentChannel.key = rawKey;
+                }
+            }
+        } else if (line.startsWith('http')) {
+            if (currentChannel) {
+                currentChannel.url = line;
+                channels.push(currentChannel);
+                currentChannel = null;
+            }
+        }
+    });
+
+    if (channels.length > 0) {
+        newEditor.setValue(JSON.stringify(channels, null, 2), -1);
+        alert(`Successfully converted ${channels.length} channels.`);
+    } else {
+        alert("No valid channels found in the provided M3U content.");
+    }
+}
+
+function validateJson(editor) {
+    const code = editor.getValue();
+    try {
+        const parsed = JSON.parse(code);
+        if (!Array.isArray(parsed)) {
+            alert("Warning: Playlist JSON should be an Array of channel objects.");
+            return;
+        }
+        alert("✅ JSON is valid and correctly formatted.");
+    } catch (e) {
+        alert("❌ Invalid JSON format:\n" + e.message);
+    }
+}
+
+function validateNewPlaylistJson() { validateJson(newEditor); }
+function validateEditPlaylistJson() { validateJson(editEditor); }
+
 function toggleAdminMenu() {
     const menu = document.getElementById('adminSlidingMenu');
     const backdrop = document.getElementById('adminMenuBackdrop');
@@ -350,4 +435,4 @@ function checkDevTools() {
     }
     return false;
 }
-//setInterval(checkDevTools, 1000);
+setInterval(checkDevTools, 1000);
