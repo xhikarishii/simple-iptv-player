@@ -1,5 +1,7 @@
 let player;
+let uiControls;
 let allChannelsData = [];
+let currentFilteredChannels = [];
 let allPlaylists = [];
 let dynamicSecretKey = null;
 let lastPlayedUrl = null;
@@ -7,6 +9,11 @@ let lastPlayedKey = null;
 let currentUserId = null;
 let epgDataCache = {}; // Cache for parsed EPG data
 let epgUpdateInterval = null;
+let overlayIdleTimer = null;
+let channelOverlayIndex = 0;
+let epgChannelIndex = 0; // Vertical row selection
+let epgProgramIndex = 0; // Horizontal card selection
+let playerClickTimer = null;
 
 async function verify() {
     const token = localStorage.getItem('jwtToken');
@@ -16,6 +23,9 @@ async function verify() {
         const res = await fetch('/api/auth/check', { headers: { 'Authorization': `Bearer ${token}` } });
         if (res.ok) {
             const data = await res.json();
+
+            // Detect TV environment early to optimize boot and security checks
+            detectTvMode();
             
             toggleAppLoader(true);
             
@@ -34,9 +44,9 @@ async function verify() {
             document.getElementById('loginModal').style.display = 'none';
             document.getElementById('playerUI').style.display = 'grid';
 
-            // 2. Start the player engine
+            // 2. Start the player engine (Note: initApp no longer calls loadPlaylists internally)
             await initApp(); 
-            
+
             // 3. Load data and trigger the resume logic (epg loading happens inside)
             await loadPlaylists(); 
 
@@ -101,8 +111,8 @@ async function initApp() {
     if (shaka.Player.isBrowserSupported()) {
         const video = document.getElementById('video');
         const ui = video['ui'];
-        const controls = ui.getControls();
-        player = controls.getPlayer();
+        uiControls = ui.getControls();
+        player = uiControls.getPlayer();
 
         // Upgraded CORS Proxy Filter (Handles HTTP Mixed Content & Root-Relative Paths)
         let currentUpstreamProtocol = '';
@@ -140,9 +150,95 @@ async function initApp() {
         });
 
         player.addEventListener('error', (e) => handlePlaybackError(e.detail));
-        await loadPlaylists();
     }
 }
+
+/**
+ * Shows the Now Playing overlay and resets the auto-hide timer.
+ */
+function resetOverlayIdleTimer() {
+    const overlay = document.getElementById('nowPlayingOverlay');
+    if (!overlay) return;
+
+    overlay.classList.add('active');
+    if (overlayIdleTimer) clearTimeout(overlayIdleTimer);
+    
+    overlayIdleTimer = setTimeout(() => {
+        overlay.classList.remove('active');
+    }, 5000); // Hide after 5 seconds of inactivity
+}
+
+// Setup Player Interaction Handlers (TV Mode Clicks & Taps for Toggling Overlays)
+document.addEventListener('DOMContentLoaded', () => {
+    const playerArea = document.querySelector('.player-area');
+    const chModal = document.getElementById('channelModal');
+    const epgModal = document.getElementById('epgModal');
+
+    if (!playerArea || !chModal || !epgModal) return;
+
+    const handleInteraction = (e) => {
+        // Reset activity timer on any interaction
+        resetOverlayIdleTimer();
+
+        if (!document.body.classList.contains('tv-mode')) return;
+        
+        // Auto-unmute on any screen interaction in TV Mode
+        unmuteVideo();
+
+        // If clicking/tapping interactive elements like cards or buttons, ignore toggle logic
+        if (e.target.closest('.channel-card') || e.target.closest('.program-card-epg') || e.target.closest('.close-btn')) return;
+
+        // Intercept: Prevent Shaka Player from handling its own logic and stop propagation
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        if (e.cancelable) e.preventDefault();
+
+        if (playerClickTimer) {
+            clearTimeout(playerClickTimer);
+            playerClickTimer = null;
+            
+            // Double Click/Tap: Logic for EPG Guide
+            if (chModal.style.display === 'flex') closeChannelGuide();
+            
+            if (epgModal.style.display === 'flex') closeEpgGuide();
+            else openEpgGuide();
+        } else {
+            playerClickTimer = setTimeout(() => {
+                playerClickTimer = null;
+                
+                // Single Click/Tap: Logic for Channel List Overlay
+                // If EPG is open, a single tap should just close it (Standard TV UX)
+                if (epgModal.style.display === 'flex') {
+                    closeEpgGuide();
+                    return;
+                }
+
+                if (chModal.style.display === 'flex') closeChannelGuide();
+                else openChannelGuide();
+            }, 280); // 280ms is optimal for distinguishing single/double taps on most TV WebViews
+        }
+    };
+
+    // Monitor activity within the player area
+    playerArea.addEventListener('mousemove', resetOverlayIdleTimer);
+
+    // Bind to player area using capture phase to intercept Shaka UI layers
+    playerArea.addEventListener('click', handleInteraction, true);
+    playerArea.addEventListener('touchstart', handleInteraction, { capture: true, passive: false });
+
+    // Bind to modals backgrounds to allow "tap to close"
+    chModal.addEventListener('click', handleInteraction);
+    chModal.addEventListener('touchstart', handleInteraction, { passive: false });
+    epgModal.addEventListener('click', handleInteraction);
+    epgModal.addEventListener('touchstart', handleInteraction, { passive: false });
+
+    // Explicitly block native double-click to fullscreen in TV Mode
+    playerArea.addEventListener('dblclick', (e) => {
+        if (document.body.classList.contains('tv-mode')) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+        }
+    }, true);
+});
 
 function decryptPayload(encryptedPayload) {
     if (!dynamicSecretKey) throw new Error("Encryption key not loaded");
@@ -171,7 +267,14 @@ async function loadPlaylists() {
         
         if (data.payload) {
             allPlaylists = decryptPayload(data.payload);
-            await loadAllEpgData(allPlaylists); // Load EPG data for all playlists
+            
+            // Load EPG in background so the UI doesn't hang on slower TV hardware
+            loadAllEpgData(allPlaylists).then(() => {
+                // Refresh UI components that depend on EPG data
+                if (lastPlayedUrl) updateNowPlayingEPG(true);
+                const playlistIndex = document.getElementById('playlistSelector').value;
+                if (allPlaylists[playlistIndex]) renderChannels(allPlaylists[playlistIndex].channels);
+            });
         }
 
         const playlistSelector = document.getElementById('playlistSelector');
@@ -385,9 +488,12 @@ function updateNowPlayingEPG(isInitialLoad = false) {
         }
 
         // Detect program change and show overlay briefly
-        if (!isInitialLoad && oldTitle && oldTitle !== newTitle && overlay && window.innerWidth > 1100) {
+        if (!isInitialLoad && oldTitle && oldTitle !== newTitle && overlay) {
             overlay.classList.add('show-temporary');
-            setTimeout(() => overlay.classList.remove('show-temporary'), 8000);
+            if (overlay.dataset.timeoutId) clearTimeout(overlay.dataset.timeoutId);
+            overlay.dataset.timeoutId = setTimeout(() => {
+                overlay.classList.remove('show-temporary');
+            }, 10000);
         }
         programInfo.dataset.currentTitle = newTitle;
     }
@@ -476,6 +582,7 @@ function clearSearch() {
 }
 
 function renderChannels(channels) {
+    currentFilteredChannels = channels; // Track for TV mode navigation
     const listElement = document.getElementById('playlist');
     if (!listElement) return;
 
@@ -504,6 +611,16 @@ function renderChannels(channels) {
 async function playChannel(url, encodedKeyStr, isAutoplay = false) {
     // Reset the error UI and state immediately when a new channel is selected
     document.getElementById('videoErrorOverlay').style.display = 'none';
+
+    // Show "Now Showing" for 10 seconds
+    const overlay = document.getElementById('nowPlayingOverlay');
+    if (overlay) {
+        overlay.classList.add('show-temporary');
+        if (overlay.dataset.switchTimeout) clearTimeout(overlay.dataset.switchTimeout);
+        overlay.dataset.switchTimeout = setTimeout(() => {
+            overlay.classList.remove('show-temporary');
+        }, 10000);
+    }
 
     lastPlayedUrl = url;
     lastPlayedKey = encodedKeyStr;
@@ -542,6 +659,9 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
         await player.unload();
         player.resetConfiguration();
         
+        // Give the browser/TV hardware a moment to release decoder resources and reset state
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         const keyString = encodedKeyStr ? decodeURIComponent(encodedKeyStr).trim() : null;
         if (keyString) {
             if (keyString.startsWith('http')) {
@@ -625,13 +745,290 @@ function toggleSidebar() {
     btn.innerText = isActive ? '✕ Close' : '☰ Channels';
 }
 
+function detectTvMode() {
+    const ua = navigator.userAgent;
+    
+    // Explicit markers for major Smart TV platforms and streaming sticks
+    const tvMarkers = /SmartTV|Android TV|GoogleTV|AppleTV|Tizen|WebOS|HbbTV|NetCast|Viera|AFTB|AFTN|AFTM|AFTSS|CrKey|Large Screen|MiTV|SonyBravia|BRAVIA|NVIDIA SHIELD/i;
+    
+    // Heuristic: Check for Android + TV combination (common in generic Android TV boxes)
+    const isAndroidTv = /Android/i.test(ua) && /TV/i.test(ua);
+    
+    if (tvMarkers.test(ua) || isAndroidTv) toggleTvMode(true);
+}
+
+function toggleTvMode(force) {
+    const isTv = force !== undefined ? force : !document.body.classList.contains('tv-mode');
+    document.body.classList.toggle('tv-mode', isTv);
+    const btn = document.getElementById('tvModeBtn');
+    if (btn) btn.innerText = isTv ? 'Exit TV Mode' : 'TV Mode';
+
+    // Attempt to unmute automatically when entering TV mode
+    if (isTv) unmuteVideo();
+
+    // Completely disable Shaka UI controls logic in TV mode
+    if (uiControls) {
+        uiControls.setEnabled(!isTv);
+    }
+}
+
+function navigateChannel(direction) {
+    if (!currentFilteredChannels || currentFilteredChannels.length === 0) return;
+    
+    let index = currentFilteredChannels.findIndex(c => c.url === lastPlayedUrl);
+    
+    // Loop logic
+    let nextIndex = index + direction;
+    if (nextIndex < 0) nextIndex = currentFilteredChannels.length - 1;
+    if (nextIndex >= currentFilteredChannels.length) nextIndex = 0;
+
+    const channel = currentFilteredChannels[nextIndex];
+    const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
+    playChannel(channel.url, keyStr);
+}
+
+document.addEventListener('keydown', (e) => {
+    // If login is showing, don't navigate
+    if (document.getElementById('playerUI').style.display === 'none') return;
+
+    const key = e.key;
+    const keyCode = e.keyCode;
+    const epg = document.getElementById('epgModal');
+    const chModal = document.getElementById('channelModal');
+    const isEpgOpen = epg && epg.style.display === 'flex';
+    const isChannelOpen = chModal && chModal.style.display === 'flex';
+
+    // Reset idle timer on keyboard activity
+    resetOverlayIdleTimer();
+
+    // Auto-unmute on remote/keyboard interaction in TV mode
+    if (document.body.classList.contains('tv-mode')) unmuteVideo();
+
+    // --- NAVIGATION WITHIN CHANNEL OVERLAY ---
+    if (isChannelOpen) {
+        const list = document.getElementById('channelOverlayList');
+        const items = list.querySelectorAll('.channel-card');
+        if (items.length === 0) return;
+
+        // Determine grid columns dynamically
+        const containerWidth = list.offsetWidth;
+        const itemWidth = items[0].offsetWidth + 20; // width + gap
+        const cols = Math.max(1, Math.floor(containerWidth / itemWidth));
+
+        if (key === 'ArrowUp' || key === 'Up' || keyCode === 38) {
+            e.preventDefault();
+            if (channelOverlayIndex >= cols) channelOverlayIndex -= cols;
+        } else if (key === 'ArrowDown' || key === 'Down' || keyCode === 40) {
+            e.preventDefault();
+            if (channelOverlayIndex + cols < items.length) channelOverlayIndex += cols;
+        } else if (key === 'ArrowLeft' || key === 'Left' || keyCode === 37) {
+            e.preventDefault();
+            if (channelOverlayIndex > 0) channelOverlayIndex--;
+        } else if (key === 'ArrowRight' || key === 'Right' || keyCode === 39) {
+            e.preventDefault();
+            if (channelOverlayIndex < items.length - 1) channelOverlayIndex++;
+        } else if (key === 'Enter' || key === 'OK' || key === 'Select' || keyCode === 13) {
+            e.preventDefault();
+            items[channelOverlayIndex].click();
+            return;
+        } else if (key === 'Escape' || key === 'Back' || keyCode === 27 || keyCode === 8) {
+            e.preventDefault();
+            closeChannelGuide();
+            return;
+        }
+
+        updateChannelOverlayFocus();
+        return; // Block zapping while overlay is open
+    }
+
+    // --- NAVIGATION WITHIN EPG OVERLAY ---
+    if (isEpgOpen) {
+        const rows = document.querySelectorAll('.channel-row-epg');
+        if (rows.length === 0) return;
+
+        const currentRow = rows[epgChannelIndex];
+        const programCards = currentRow.querySelectorAll('.program-card-epg');
+
+        if (key === 'ArrowUp' || key === 'Up' || keyCode === 38) {
+            e.preventDefault();
+            if (epgChannelIndex > 0) {
+                epgChannelIndex--;
+                epgProgramIndex = 0; // Reset horizontal on row change
+            }
+        } else if (key === 'ArrowDown' || key === 'Down' || keyCode === 40) {
+            e.preventDefault();
+            if (epgChannelIndex < rows.length - 1) {
+                epgChannelIndex++;
+                epgProgramIndex = 0;
+            }
+        } else if (key === 'ArrowLeft' || key === 'Left' || keyCode === 37) {
+            e.preventDefault();
+            if (epgProgramIndex > 0) epgProgramIndex--;
+        } else if (key === 'ArrowRight' || key === 'Right' || keyCode === 39) {
+            e.preventDefault();
+            if (epgProgramIndex < programCards.length - 1) epgProgramIndex++;
+        } else if (key === 'Enter' || key === 'OK' || key === 'Select' || keyCode === 13) {
+            e.preventDefault();
+            if (programCards[epgProgramIndex]) {
+                programCards[epgProgramIndex].click();
+            } else {
+                currentRow.querySelector('.channel-info-epg').click();
+            }
+            return;
+        } else if (key === 'Escape' || key === 'Back' || keyCode === 27 || keyCode === 8) {
+            e.preventDefault();
+            closeEpgGuide();
+            return;
+        }
+        updateEpgOverlayFocus();
+        return;
+    }
+
+    // Navigation Up / Channel Down / Previous Index
+    if (key === 'ArrowUp' || key === 'Up' || key === 'PageDown' || key === 'Page Down' || key === 'Next' || keyCode === 38 || keyCode === 19 || keyCode === 34 || keyCode === 167) {
+        if (isEpgOpen || isChannelOpen) return;
+        e.preventDefault();
+        navigateChannel(-1);
+    } 
+    // Navigation Down / Channel Up / Next Index
+    else if (key === 'ArrowDown' || key === 'Down' || key === 'PageUp' || key === 'Page Up' || key === 'Prior' || keyCode === 40 || keyCode === 20 || keyCode === 33 || keyCode === 166) {
+        if (isEpgOpen || isChannelOpen) return;
+        e.preventDefault();
+        navigateChannel(1);
+    } 
+    // OK / Enter / Select for EPG Toggle
+    else if (key === 'Enter' || key === 'OK' || key === 'Select' || keyCode === 13) {
+        e.preventDefault();
+        if (isEpgOpen) closeEpgGuide();
+        else openEpgGuide();
+    } else if (e.key === 'Escape' && document.body.classList.contains('tv-mode')) {
+        toggleTvMode(false); // Back out of TV mode on PC
+    }
+});
+
+window.addEventListener('wheel', (e) => {
+    // Only navigate via wheel if TV mode is active and login is hidden
+    if (!document.body.classList.contains('tv-mode')) return;
+    if (document.getElementById('playerUI').style.display === 'none') return;
+
+    // Don't switch channels if EPG is open
+    const epg = document.getElementById('epgModal');
+    if (epg && epg.style.display === 'flex') return;
+
+    if (e.deltaY < 0) {
+        navigateChannel(-1); // Scroll Up -> Previous Channel
+    } else if (e.deltaY > 0) {
+        navigateChannel(1);  // Scroll Down -> Next Channel
+    }
+}, { passive: true });
+
 function openEpgGuide() {
+    // Set initial focus to the currently playing channel
+    const idx = document.getElementById('playlistSelector').value;
+    const playlist = allPlaylists[idx];
+    if (playlist) {
+        const currentIdx = playlist.channels.findIndex(c => c.url === lastPlayedUrl);
+        epgChannelIndex = currentIdx >= 0 ? currentIdx : 0;
+        epgProgramIndex = 0; // Default to first program card (usually the 'Live' one)
+    }
+
     renderEpgOverlay();
     document.getElementById('epgModal').style.display = 'flex';
+    setTimeout(updateEpgOverlayFocus, 50); // Ensure DOM is rendered before focusing
 }
 
 function closeEpgGuide() {
     document.getElementById('epgModal').style.display = 'none';
+}
+
+function updateEpgOverlayFocus() {
+    const rows = document.querySelectorAll('.channel-row-epg');
+    rows.forEach((row, rIdx) => {
+        const cards = row.querySelectorAll('.program-card-epg');
+        const info = row.querySelector('.channel-info-epg');
+        
+        if (rIdx === epgChannelIndex) {
+            row.style.background = 'rgba(59, 130, 246, 0.1)';
+            // Scroll row into view vertically
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            if (cards.length > 0) {
+                cards.forEach((card, cIdx) => {
+                    if (cIdx === epgProgramIndex) {
+                        card.classList.add('focused');
+                        // Scroll card into view horizontally within the row
+                        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    } else {
+                        card.classList.remove('focused');
+                    }
+                });
+                info.classList.remove('focused');
+            } else {
+                // No programs, focus the channel info instead
+                info.classList.add('focused');
+            }
+        } else {
+            row.style.background = 'rgba(0,0,0,0.2)';
+            cards.forEach(c => c.classList.remove('focused'));
+            info.classList.remove('focused');
+        }
+    });
+}
+
+function openChannelGuide() {
+    // Find index of currently playing channel to set initial focus
+    const idx = document.getElementById('playlistSelector').value;
+    const playlist = allPlaylists[idx];
+    const currentIdx = playlist ? playlist.channels.findIndex(c => c.url === lastPlayedUrl) : 0;
+    channelOverlayIndex = currentIdx >= 0 ? currentIdx : 0;
+
+    renderChannelOverlay();
+    document.getElementById('channelModal').style.display = 'flex';
+}
+
+function closeChannelGuide() {
+    document.getElementById('channelModal').style.display = 'none';
+}
+
+function updateChannelOverlayFocus() {
+    const items = document.querySelectorAll('#channelOverlayList .channel-card');
+    items.forEach((item, idx) => {
+        if (idx === channelOverlayIndex) {
+            item.classList.add('focused');
+            // Ensure the focused item is visible during navigation
+            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            item.classList.remove('focused');
+        }
+    });
+}
+
+function renderChannelOverlay() {
+    const idx = document.getElementById('playlistSelector').value;
+    const playlist = allPlaylists[idx];
+    const container = document.getElementById('channelOverlayList');
+    if (!playlist) return;
+
+    const epgUrl = playlist.epg || '';
+
+    container.innerHTML = playlist.channels.map((channel, index) => {
+        const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
+        const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
+        
+        const program = getProgramForChannel(channel.epgId, epgUrl);
+        const programHtml = program ? `<span class="channel-program">🔴 ${program.title}</span>` : '';
+        const isFocused = index === channelOverlayIndex ? 'focused' : '';
+
+        return `
+            <li class="channel-card ${isFocused}" onclick="playChannel('${channel.url}', '${keyStr}'); closeChannelGuide();">
+                <img src="${logo}" class="channel-logo" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/54/1e293b/ffffff?text=TV';">
+                <div class="channel-meta">
+                    <span class="channel-name">${channel.name}</span>
+                    ${programHtml}
+                    <span class="channel-cat">${channel.cat || 'Uncategorized'}</span>
+                </div>
+            </li>`;
+    }).join('');
 }
 
 function renderEpgOverlay() {
@@ -648,7 +1045,7 @@ function renderEpgOverlay() {
         return;
     }
 
-    container.innerHTML = `<div class="epg-grid">` + playlist.channels.map(ch => {
+    container.innerHTML = `<div class="epg-grid">` + playlist.channels.map((ch, rIdx) => {
         let programs = [];
         for (const url of urls) {
             const cache = epgDataCache[url];
@@ -661,11 +1058,12 @@ function renderEpgOverlay() {
             }
         }
 
-        const programHtml = programs.length > 0 ? programs.map(p => {
+        const programHtml = programs.length > 0 ? programs.map((p, pIdx) => {
             const isLive = now >= p.start && now < p.stop;
             const keyStr = ch.key ? encodeURIComponent(ch.key) : '';
+            const isFocused = (rIdx === epgChannelIndex && pIdx === epgProgramIndex) ? 'focused' : '';
             return `
-                <div class="program-card-epg ${isLive ? 'active' : ''}" onclick="playChannel('${ch.url}', '${keyStr}'); closeEpgGuide();">
+                <div class="program-card-epg ${isLive ? 'active' : ''} ${isFocused}" onclick="playChannel('${ch.url}', '${keyStr}'); closeEpgGuide();">
                     <span class="program-title-epg">${isLive ? '🔴 ' : ''}${p.title}</span>
                     <span class="program-time-epg">${formatTime(p.start)} - ${formatTime(p.stop)}</span>
                 </div>
@@ -719,9 +1117,12 @@ function triggerSecurityViolation() {
 }
 
 function checkDevTools() {
+    // Bypass debugger check for TV Mode to prevent false positives on slow hardware
+    if (document.body.classList.contains('tv-mode')) return false;
+
     const before = new Date().getTime();
     debugger;
-    if (new Date().getTime() - before > 100) {
+    if (new Date().getTime() - before > 500) { // Increased threshold for stability
         triggerSecurityViolation();
         return true;
     }
