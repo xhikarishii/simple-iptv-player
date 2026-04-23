@@ -173,7 +173,7 @@ async function submitChangePassword() {
 
 // --- PLAYLIST MANAGEMENT ---
 async function loadPlaylists() {
-    //if (checkDevTools()) return;
+    if (checkDevTools()) return;
     try {
         const res = await fetch('/api/playlists', {
             headers: getAuthHeaders()
