@@ -457,6 +457,9 @@
             <div class="sidebar-controls">
                 <label style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 5px; display: block;">Select Playlist</label>
                 <select id="playlistSelector" class="filter-select" onchange="switchPlaylist()" style="margin-bottom: 10px;"></select>
+
+                <label style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 5px; display: block;">Search</label>
+                <input type="text" id="channelSearch" class="filter-select" placeholder="Find a channel..." oninput="filterChannels()" style="margin-bottom: 10px; cursor: text;" autocomplete="off" spellcheck="false">
                 
                 <label style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 5px; display: block;">Category</label>
                 <select id="categoryFilter" class="filter-select" onchange="filterChannels()"></select>

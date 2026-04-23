@@ -201,6 +201,8 @@ function renderCurrentPlaylist() {
     const selected = allPlaylists[index];
     if (!selected) return;
 
+    document.getElementById('channelSearch').value = '';
+
     const categories = [...new Set(selected.channels.map(c => c.cat || 'Uncategorized'))];
     document.getElementById('categoryFilter').innerHTML = '<option value="all">All Categories</option>' + 
         categories.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -211,6 +213,8 @@ function renderCurrentPlaylist() {
 function switchPlaylist() {
     const selector = document.getElementById('playlistSelector');
     if (!selector || allPlaylists.length === 0) return;
+
+    document.getElementById('channelSearch').value = '';
 
     const index = selector.value;
     const selectedPlaylist = allPlaylists[index];
@@ -245,11 +249,14 @@ function switchPlaylist() {
 function filterChannels() {
     const playlistIndex = document.getElementById('playlistSelector').value;
     const selectedCat = document.getElementById('categoryFilter').value;
+    const searchQuery = document.getElementById('channelSearch').value.toLowerCase();
     const channels = allPlaylists[playlistIndex].channels || [];
 
-    const filtered = selectedCat === 'all' ? 
-        channels : 
-        channels.filter(c => (c.cat || 'Uncategorized') === selectedCat);
+    const filtered = channels.filter(c => {
+        const matchesCat = selectedCat === 'all' || (c.cat || 'Uncategorized') === selectedCat;
+        const matchesSearch = c.name.toLowerCase().includes(searchQuery);
+        return matchesCat && matchesSearch;
+    });
 
     renderChannels(filtered);
 }
