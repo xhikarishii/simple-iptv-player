@@ -22,6 +22,11 @@ async function verify() {
             // Update desktop header elements
             document.getElementById('currentUserDisplay').innerText = `👤 ${data.username}`; // Desktop
             document.getElementById('adminLink').style.display = data.role === 'admin' ? 'inline-block' : 'none'; // Desktop
+
+            // Update mobile header elements
+            document.getElementById('mobileUserDisplay').innerText = `👤 ${data.username}`;
+            document.getElementById('mobileAdminLink').style.display = data.role === 'admin' ? 'block' : 'none';
+
             document.getElementById('loginModal').style.display = 'none';
             document.getElementById('playerUI').style.display = 'grid';
 
@@ -408,6 +413,13 @@ function toggleSidebar() {
     if (!sidebar || !btn) return;
     const isActive = sidebar.classList.toggle('active');
     btn.innerText = isActive ? '✕ Close' : '☰ Channels';
+}
+
+function toggleHeaderMenu() {
+    const menu = document.getElementById('mobileSlidingMenu');
+    const backdrop = document.getElementById('menuBackdrop');
+    if (menu) menu.classList.toggle('active');
+    if (backdrop) backdrop.classList.toggle('active');
 }
 
 document.addEventListener('DOMContentLoaded', verify);

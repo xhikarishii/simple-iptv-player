@@ -79,6 +79,51 @@
             position: relative;
         }
 
+        .menu-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 240;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .menu-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .mobile-sliding-menu {
+            position: fixed;
+            top: 0;
+            right: -280px;
+            width: 280px;
+            height: 100vh;
+            background: var(--card-bg);
+            z-index: 250;
+            padding: 30px 25px;
+            box-sizing: border-box;
+            /* box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); */
+            display: flex;
+            flex-direction: column;
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-sliding-menu.active {
+            right: 0;
+        }
+
+        .menu-close-btn {
+            align-self: flex-end;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.8rem;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
         .header-toggle-btn {
             display: none; /* Hidden by default on desktop */
         }
@@ -354,6 +399,15 @@
             }
 
             /* Header specific mobile styles */
+            #headerUserActions {
+                display: none !important;
+            }
+
+            .header-toggle-btn {
+                display: block;
+                margin-left: auto;
+            }
+
             header {
                 position: relative; /* For absolute positioning of the mobile user menu */
             }
@@ -456,6 +510,18 @@
 
                 <button onclick="logout()"
                     style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Logout</button>
+            </div>
+            <button class="header-toggle-btn" onclick="toggleHeaderMenu()">☰</button>
+
+            <div id="menuBackdrop" class="menu-backdrop" onclick="toggleHeaderMenu()"></div>
+
+            <div id="mobileSlidingMenu" class="mobile-sliding-menu">
+                <button class="menu-close-btn" onclick="toggleHeaderMenu()">✕</button>
+                <span id="mobileUserDisplay" style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 25px; display: block; font-weight: 600;"></span>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <a href="/admin.html" id="mobileAdminLink" style="display: none; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center;">Admin Panel</a>
+                    <button onclick="logout()" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem;">Logout</button>
+                </div>
             </div>
         </header>
 
