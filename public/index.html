@@ -79,6 +79,70 @@
             position: relative;
         }
 
+        .header-toggle-btn {
+            display: none; /* Hidden by default on desktop */
+        }
+
+        .mobile-only-btn {
+            display: none;
+        }
+
+        .now-playing-overlay {
+            position: absolute;
+            bottom: 100px;
+            left: 50px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 55;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .now-playing-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px;
+        }
+
+        .player-area:hover .now-playing-overlay {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .now-playing-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: 1.5px;
+            display: block;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        #nowPlayingName {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        #nowPlayingCat {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
         .video-wrapper div[data-shaka-player-container] {
             width: 100% !important;
             height: 100% !important;
@@ -219,15 +283,83 @@
 
             .player-area {
                 padding: 0;
-                height: 35vh;
+                height: auto;
+                display: flex;
+                flex-direction: column;
             }
 
             .video-wrapper {
                 border-radius: 0;
+                height: auto;
+                aspect-ratio: 16 / 9;
+            }
+
+            .now-playing-overlay {
+                position: static;
+                opacity: 1;
+                transform: none;
+                background: var(--card-bg);
+                border: none;
+                border-radius: 0;
+                width: 100%;
+                box-sizing: border-box;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 15px 20px;
+                pointer-events: auto;
+            }
+
+            .mobile-only-btn {
+                display: block;
+                background: var(--primary);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 0.85rem;
+                margin: 0;
+                margin-left: auto;
+            }
+
+            /* Header specific mobile styles */
+            header {
+                position: relative; /* For absolute positioning of the mobile user menu */
+            }
+
+            .header-toggle-btn {
+                display: block; /* Show on mobile */
+                background: transparent;
+                color: var(--text-main);
+                border: none;
+                padding: 5px 10px;
+                font-size: 1.5rem;
+                cursor: pointer;
+                margin-left: auto; /* Push to the right */
+            }
+
+            .logo {
+                font-size: 1.2rem;
             }
 
             .sidebar {
-                height: 600px;
+                display: flex;
+                height: auto;
+                max-height: 0;
+                opacity: 0;
+                overflow: hidden;
+                transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+                border-left: none;
+                border-top: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            .sidebar.active {
+                max-height: 80vh;
+                opacity: 1;
+            }
+
+            #currentUserDisplay {
+                display: none;
             }
         }
 
@@ -283,7 +415,7 @@
     <div class="app-container" id="playerUI">
         <header>
             <div class="logo">STREAMLINE.</div>
-            <div style="display: flex; gap: 15px; align-items: center;">
+            <div id="headerUserActions" style="display: flex; gap: 15px; align-items: center;">
                 <span id="currentUserDisplay"
                     style="color: var(--text-main); font-size: 0.95rem; font-weight: 600; margin-right: 10px;"></span>
 
@@ -309,6 +441,15 @@
                     <p id="errorDescription" style="color:var(--text-dim);"></p>
                     <button class="btn-retry" onclick="retryLastChannel()">Retry Connection</button>
                 </div>
+            </div>
+            <div id="nowPlayingOverlay" class="now-playing-overlay">
+                <img id="nowPlayingLogo" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="now-playing-logo" alt="Channel Logo" onerror="this.onerror=null;this.src='https://via.placeholder.com/54/1e293b/ffffff?text=TV';">
+                <div>
+                    <span class="now-playing-label">Now Playing</span>
+                    <h2 id="nowPlayingName">Channel Name</h2>
+                    <span id="nowPlayingCat">Category</span>
+                </div>
+                <button id="mobileMenuBtn" class="mobile-only-btn" onclick="toggleSidebar()">☰ Channels</button>
             </div>
         </main>
 

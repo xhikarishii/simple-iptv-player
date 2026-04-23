@@ -87,6 +87,22 @@
             header button, header a { padding: 6px 12px; font-size: 0.8rem; }
             
             /* Lock video to perfect 16:9 ratio at the top */
+            /* Admin specific mobile styles */
+            header {
+                position: relative; /* For absolute positioning of the mobile admin menu */
+            }
+
+            .header-toggle-btn {
+                display: block; /* Show on mobile */
+                background: transparent;
+                color: var(--text-main);
+                border: none;
+                padding: 5px 10px;
+                font-size: 1.5rem;
+                cursor: pointer;
+                margin-left: auto; /* Push to the right */
+            }
+
             .player-area { padding: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; flex-shrink: 0; } 
             .video-wrapper { border-radius: 0; } 
             
@@ -285,7 +301,8 @@
 
     <header>
         <h1 class="logo">STREAMLINE.</h1>
-        <a href="/" class="header-link">← Back to Player</a>
+        <!-- Desktop Admin Link -->
+        <a href="/" class="header-link">← Back to Player</a> 
     </header>
 
     <main class="admin-container">

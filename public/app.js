@@ -19,8 +19,9 @@ async function verify() {
             dynamicSecretKey = data.clientKey; 
             currentUserId = String(data.id); 
             
-            document.getElementById('currentUserDisplay').innerText = `👤 ${data.username}`;
-            document.getElementById('adminLink').style.display = data.role === 'admin' ? 'inline-block' : 'none';
+            // Update desktop header elements
+            document.getElementById('currentUserDisplay').innerText = `👤 ${data.username}`; // Desktop
+            document.getElementById('adminLink').style.display = data.role === 'admin' ? 'inline-block' : 'none'; // Desktop
             document.getElementById('loginModal').style.display = 'none';
             document.getElementById('playerUI').style.display = 'grid';
 
@@ -262,7 +263,7 @@ function renderChannels(channels) {
         const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
         return `
             <li class="channel-card" onclick="playChannel('${channel.url}', '${keyStr}')">
-                <img src="${logo}" class="channel-logo" loading="lazy">
+                <img src="${logo}" class="channel-logo" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/54/1e293b/ffffff?text=TV';">
                 <div class="channel-meta">
                     <span class="channel-name">${channel.name}</span>
                     <span class="channel-cat">${channel.cat || 'Uncategorized'}</span>
@@ -274,6 +275,18 @@ function renderChannels(channels) {
 async function playChannel(url, encodedKeyStr, isAutoplay = false) {
     lastPlayedUrl = url;
     lastPlayedKey = encodedKeyStr;
+
+    // Update Now Playing Overlay
+    for (const pl of allPlaylists) {
+        const match = pl.channels.find(c => c.url === url);
+        if (match) {
+            document.getElementById('nowPlayingName').innerText = match.name;
+            document.getElementById('nowPlayingCat').innerText = match.cat || 'Uncategorized';
+            document.getElementById('nowPlayingLogo').src = match.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
+            break;
+        }
+    }
+
     const video = document.getElementById('video');
     
     // Clear any previous error overlays immediately
@@ -282,6 +295,12 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
     if (currentUserId) {
         localStorage.setItem(`lastChannel_${currentUserId}`, url);
         localStorage.setItem(`lastKey_${currentUserId}`, encodedKeyStr || '');
+    }
+
+    // Auto-close sidebar on mobile after selection
+    const sidebar = document.querySelector('.sidebar');
+    if (window.innerWidth <= 1100 && sidebar && sidebar.classList.contains('active')) {
+        toggleSidebar();
     }
 
     try {
@@ -357,6 +376,14 @@ function unmuteVideo() {
     video.muted = false;
     video.volume = 1.0;
     document.getElementById('unmuteHint').style.display = 'none';
+}
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const btn = document.getElementById('mobileMenuBtn');
+    if (!sidebar || !btn) return;
+    const isActive = sidebar.classList.toggle('active');
+    btn.innerText = isActive ? '✕ Close' : '☰ Channels';
 }
 
 document.addEventListener('DOMContentLoaded', verify);
