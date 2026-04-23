@@ -202,6 +202,8 @@ function renderCurrentPlaylist() {
     if (!selected) return;
 
     document.getElementById('channelSearch').value = '';
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
 
     const categories = [...new Set(selected.channels.map(c => c.cat || 'Uncategorized'))];
     document.getElementById('categoryFilter').innerHTML = '<option value="all">All Categories</option>' + 
@@ -215,6 +217,8 @@ function switchPlaylist() {
     if (!selector || allPlaylists.length === 0) return;
 
     document.getElementById('channelSearch').value = '';
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
 
     const index = selector.value;
     const selectedPlaylist = allPlaylists[index];
@@ -252,6 +256,12 @@ function filterChannels() {
     const searchQuery = document.getElementById('channelSearch').value.toLowerCase();
     const channels = allPlaylists[playlistIndex].channels || [];
 
+    // Show/hide the clear button based on search input length
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) {
+        clearBtn.style.display = searchQuery.length > 0 ? 'block' : 'none';
+    }
+
     const filtered = channels.filter(c => {
         const matchesCat = selectedCat === 'all' || (c.cat || 'Uncategorized') === selectedCat;
         const matchesSearch = c.name.toLowerCase().includes(searchQuery);
@@ -259,6 +269,13 @@ function filterChannels() {
     });
 
     renderChannels(filtered);
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('channelSearch');
+    searchInput.value = '';
+    filterChannels();
+    searchInput.focus();
 }
 
 function renderChannels(channels) {
