@@ -239,6 +239,26 @@ function parseXmltvDate(dateStr) {
 }
 
 /**
+ * Maps Shaka Player error codes and categories to user-friendly messages.
+ */
+function getFriendlyErrorMessage(error) {
+    if (error.category === shaka.util.Error.Category.NETWORK) {
+        return "Network Error: The stream could not be reached. Please check your internet connection or proxy settings.";
+    }
+    if (error.category === shaka.util.Error.Category.DRM) {
+        if (error.code === 6001) return "Security Error: This encrypted stream requires a secure (HTTPS) connection to play.";
+        return "DRM Error: The license for this encrypted stream could not be acquired.";
+    }
+    if (error.category === shaka.util.Error.Category.MANIFEST) {
+        return "Format Error: The playlist manifest is invalid or contains unsupported stream formats.";
+    }
+    if (error.category === shaka.util.Error.Category.STREAMING) {
+        return "Streaming Error: The connection was lost while segmenting the video data.";
+    }
+    return `Playback Error: An unexpected issue occurred. (Code: ${error.code})`;
+}
+
+/**
  * Formats a Date object to HH:MM
  */
 function formatTime(date) {
@@ -482,12 +502,14 @@ function renderChannels(channels) {
 }
 
 async function playChannel(url, encodedKeyStr, isAutoplay = false) {
+    // Reset the error UI and state immediately when a new channel is selected
+    document.getElementById('videoErrorOverlay').style.display = 'none';
+
     lastPlayedUrl = url;
     lastPlayedKey = encodedKeyStr;
 
     if (epgUpdateInterval) clearInterval(epgUpdateInterval);
 
-    // Update Now Playing Overlay
     for (const pl of allPlaylists) {
         const match = pl.channels.find(c => c.url === url);
         if (match) {
@@ -504,8 +526,6 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
     try {
         const video = document.getElementById('video');
         const hint = document.getElementById('unmuteHint');
-        
-        document.getElementById('videoErrorOverlay').style.display = 'none';
 
         if (currentUserId) {
             localStorage.setItem(`lastChannel_${currentUserId}`, url);
@@ -518,6 +538,7 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
             toggleSidebar();
         }
 
+        // Unload the previous asset and reset player configuration for a clean start
         await player.unload();
         player.resetConfiguration();
         
@@ -532,7 +553,23 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
         }
 
         // Add aggressive retry parameters directly to this load attempt
-        await player.load(url);
+        let attempts = 0;
+        const maxRetries = 5;
+        let success = false;
+
+        while (attempts < maxRetries && !success) {
+            try {
+                await player.load(url);
+                success = true;
+            } catch (e) {
+                // If load is interrupted by a new selection, stop the retry loop
+                if (e.code === shaka.util.Error.Code.LOAD_INTERRUPTED) throw e;
+                
+                attempts++;
+                if (attempts >= maxRetries) throw e;
+                await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+            }
+        }
 
         // Standard browsers require a user gesture for audio. 
         // We try to play; if it fails, we mute and try again automatically.
@@ -564,8 +601,8 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
 
 function handlePlaybackError(error) {
     const overlay = document.getElementById('videoErrorOverlay');
-    document.getElementById('errorTitle').innerText = `Error Code: ${error.code}`;
-    document.getElementById('errorDescription').innerText = error.code === 6001 ? "HTTPS is required for DRM streams." : "Failed to load the stream.";
+    document.getElementById('errorTitle').innerText = "Unable to Connect";
+    document.getElementById('errorDescription').innerText = getFriendlyErrorMessage(error);
     overlay.style.display = 'flex';
 }
 
@@ -586,6 +623,67 @@ function toggleSidebar() {
     if (!sidebar || !btn) return;
     const isActive = sidebar.classList.toggle('active');
     btn.innerText = isActive ? '✕ Close' : '☰ Channels';
+}
+
+function openEpgGuide() {
+    renderEpgOverlay();
+    document.getElementById('epgModal').style.display = 'flex';
+}
+
+function closeEpgGuide() {
+    document.getElementById('epgModal').style.display = 'none';
+}
+
+function renderEpgOverlay() {
+    const idx = document.getElementById('playlistSelector').value;
+    const playlist = allPlaylists[idx];
+    const container = document.getElementById('epgOverlayContainer');
+    if (!playlist) return;
+
+    const urls = playlist.epg ? playlist.epg.split(',').map(u => u.trim()).filter(Boolean) : [];
+    const now = new Date();
+
+    if (!playlist.channels || playlist.channels.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:50px; color:var(--text-dim);">No channels in this playlist.</div>';
+        return;
+    }
+
+    container.innerHTML = `<div class="epg-grid">` + playlist.channels.map(ch => {
+        let programs = [];
+        for (const url of urls) {
+            const cache = epgDataCache[url];
+            if (!cache) continue;
+            const cacheKey = Object.keys(cache).find(k => k.toLowerCase() === (ch.epgId || '').toLowerCase());
+            if (cacheKey) {
+                // Show current and upcoming programs (limit to 12)
+                programs = cache[cacheKey].filter(p => p.stop > now).sort((a,b) => a.start - b.start).slice(0, 12);
+                break;
+            }
+        }
+
+        const programHtml = programs.length > 0 ? programs.map(p => {
+            const isLive = now >= p.start && now < p.stop;
+            const keyStr = ch.key ? encodeURIComponent(ch.key) : '';
+            return `
+                <div class="program-card-epg ${isLive ? 'active' : ''}" onclick="playChannel('${ch.url}', '${keyStr}'); closeEpgGuide();">
+                    <span class="program-title-epg">${isLive ? '🔴 ' : ''}${p.title}</span>
+                    <span class="program-time-epg">${formatTime(p.start)} - ${formatTime(p.stop)}</span>
+                </div>
+            `;
+        }).join('') : '<div style="color: var(--text-dim); font-size: 0.85rem; padding-left: 5px;">Schedule unavailable</div>';
+
+        return `
+            <div class="channel-row-epg">
+                <div class="channel-info-epg" onclick="playChannel('${ch.url}', '${ch.key ? encodeURIComponent(ch.key) : ''}'); closeEpgGuide();" style="cursor: pointer;">
+                    <img src="${ch.logo || 'https://via.placeholder.com/44/1e293b/ffffff?text=TV'}" class="channel-logo-epg" onerror="this.onerror=null;this.src='https://via.placeholder.com/44/1e293b/ffffff?text=TV'">
+                    <span class="channel-name-epg">${ch.name}</span>
+                </div>
+                <div class="program-timeline">
+                    ${programHtml}
+                </div>
+            </div>
+        `;
+    }).join('') + `</div>`;
 }
 
 function toggleAppLoader(show) {
