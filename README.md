@@ -8,9 +8,16 @@ A premium, containerized IPTV web application designed for high-performance stre
 
 ### **Playback & Delivery**
 * **Shaka Player Integration:** High-fidelity playback for HLS and DASH streams with full **ClearKey DRM** support.
+* **Electronic Program Guide (EPG):** Supports multiple XML and XML.gz EPG sources per playlist. Features client-side decompression using `pako`.
 * **Insecure Stream Proxy:** Custom Nginx reverse proxy allows `http://` streams to play on `https://` domains without "Mixed Content" blocks.
 * **User-Specific Session Resume:** Remembers and autoplays the last channel watched by each specific user.
 * **Smart Autoplay:** Automatically handles aggressive browser autoplay policies by starting muted and providing a "Click to Unmute" hint.
+
+### **User Experience**
+* **Real-time "Now Playing":** Overlay displays channel logo, current program title, start/end times, and a live progress bar.
+* **Live Channel Metadata:** Sidebar channel list displays currently airing programs for quick browsing.
+* **Advanced Search:** Instant channel search with a dedicated "clear" action, combined with category filtering.
+* **Full-screen App Loader:** Prevents interaction during the initialization of the player engine and EPG data parsing.
 
 ### **Security & Anti-Tamper**
 * **Playlist Encryption:** Playlist data is encrypted on the server; clients only get the keys after successful authentication.
@@ -19,9 +26,11 @@ A premium, containerized IPTV web application designed for high-performance stre
 * **JWT Authentication:** Secure token-based sessions with Role-Based Access Control (RBAC).
 
 ### **Management & UI**
+* **Mobile-First Glassmorphism:** Fully responsive UI featuring a side-sliding navigation drawer and accordion-style channel lists for mobile devices.
 * **Shared Playlists:** Admins can assign playlists to primary owners or share them across multiple secondary users.
 * **Integrated Code Editor:** Built-in **Ace Editor** with JSON syntax highlighting for professional-grade playlist management.
-* **Mobile-First Design:** Fully responsive Glassmorphism UI that adapts for Cinema Mode on Desktop and App-like performance on Mobile.
+* **M3U to JSON Converter:** Powerful admin tool to import raw M3U content. Automatically extracts channel names, logos, categories, EPG IDs (`tvg-id`), and complex ClearKey license strings.
+* **JSON Validation:** Built-in validation tools to ensure playlist data is correctly formatted before saving.
 
 ---
 

@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mux.js/7.0.2/mux.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
@@ -30,6 +31,36 @@
             margin: 0;
             overflow: hidden;
         }
+
+        .app-loader {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-dark);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.4s ease, visibility 0.4s;
+        }
+
+        .app-loader .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .app-loader p {
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .app-container {
             display: grid;
@@ -138,7 +169,7 @@
             left: 50px;
             background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(10px);
-            padding: 15px;
+            padding: 18px 25px;
             border-radius: 10px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             opacity: 0;
@@ -149,6 +180,7 @@
             display: flex;
             align-items: center;
             gap: 15px;
+            min-width: 400px;
         }
 
         .now-playing-logo {
@@ -186,6 +218,41 @@
         #nowPlayingCat {
             font-size: 0.75rem;
             color: var(--text-dim);
+        }
+
+        #nowPlayingProgram {
+            font-size: 0.9rem;
+            color: var(--text-main);
+            margin-top: 5px;
+        }
+
+        .program-progress-container {
+            margin: 10px 0;
+            width: 320px;
+        }
+
+        .program-times {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
         }
 
         .video-wrapper div[data-shaka-player-container] {
@@ -311,6 +378,16 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .channel-program {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
         }
 
         .channel-cat {
@@ -497,6 +574,11 @@
 
 <body>
 
+    <div id="appLoader" class="app-loader">
+        <div class="spinner"></div>
+        <p>Initializing App & EPG...</p>
+    </div>
+
     <div class="app-container" id="playerUI">
         <header>
             <div class="logo">STREAMLINE.</div>
@@ -544,6 +626,18 @@
                 <div>
                     <span class="now-playing-label">Now Playing</span>
                     <h2 id="nowPlayingName">Channel Name</h2>
+                    <span id="nowPlayingProgram"></span>
+                    
+                    <div id="programProgressContainer" class="program-progress-container" style="display: none;">
+                        <div class="program-times">
+                            <span id="programStartTime">--:--</span>
+                            <span id="programEndTime">--:--</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div id="programProgressFill" class="progress-bar-fill"></div>
+                        </div>
+                    </div>
+
                     <span id="nowPlayingCat">Category</span>
                 </div>
                 <button id="mobileMenuBtn" class="mobile-only-btn" onclick="toggleSidebar()">☰ Channels</button>
