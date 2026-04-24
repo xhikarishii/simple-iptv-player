@@ -20,7 +20,7 @@ A containerized IPTV web application designed for high-performance streaming, ro
 * **Advanced Search:** Instant channel search with a dedicated "clear" action, combined with category filtering.
 * **Full-screen App Loader:** Prevents interaction during the initialization of the player engine and EPG data parsing.
 
-### **TV Mode & 10-foot UI**
+### **TV Mode**
 * **Auto-Detection:** Automatically detects Smart TVs, Android TV, Tizen, WebOS, and FireTV environments to optimize the UI.
 * **D-Pad Navigation:** Full support for remote control navigation (Arrow keys/OK/Back) across the EPG grid and channel overlays.
 * **Smart Interaction:** Specialized gesture/click logic (Single-click for channel list, Double-click for EPG) designed for simplified remote inputs.
