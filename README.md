@@ -1,6 +1,6 @@
 # 📺 Streamline IPTV Web Player
 
-A premium, containerized IPTV web application designed for high-performance streaming, robust security, and multi-user management. This stack is optimized to bypass common browser security restrictions while maintaining a sleek, modern UI.
+A containerized IPTV web application designed for high-performance streaming, robust security, and multi-user management. This stack is optimized to bypass common browser security restrictions while maintaining a sleek, modern UI.
 
 ---
 
