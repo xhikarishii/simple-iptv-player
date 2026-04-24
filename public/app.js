@@ -268,13 +268,11 @@ async function loadPlaylists() {
         if (data.payload) {
             allPlaylists = decryptPayload(data.payload);
             
-            // Load EPG in background so the UI doesn't hang on slower TV hardware
-            loadAllEpgData(allPlaylists).then(() => {
-                // Refresh UI components that depend on EPG data
-                if (lastPlayedUrl) updateNowPlayingEPG(true);
-                const playlistIndex = document.getElementById('playlistSelector').value;
-                if (allPlaylists[playlistIndex]) renderChannels(allPlaylists[playlistIndex].channels);
-            });
+            // Block initialization until all EPG data is loaded and parsed
+            await loadAllEpgData(allPlaylists);
+            
+            // Refresh UI components that depend on EPG data
+            if (lastPlayedUrl) updateNowPlayingEPG(true);
         }
 
         const playlistSelector = document.getElementById('playlistSelector');
@@ -1092,6 +1090,9 @@ function toggleAppLoader(show) {
     if (!loader) return;
     loader.style.opacity = show ? '1' : '0';
     loader.style.visibility = show ? 'visible' : 'hidden';
+
+    // Prevent background scrolling while the loading screen is visible
+    document.body.style.overflow = show ? 'hidden' : '';
 }
 
 function toggleHeaderMenu() {
