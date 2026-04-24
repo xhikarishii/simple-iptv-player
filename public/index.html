@@ -22,6 +22,20 @@
             --card-bg: #1e293b;
             --text-main: #f8fafc;
             --text-dim: #94a3b8;
+            --sidebar-width: clamp(300px, 25vw, 400px);
+            --header-height: 70px;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            max-width: 100%;
+            -webkit-text-size-adjust: 100%;
+            position: relative;
         }
 
         body {
@@ -29,8 +43,11 @@
             background: var(--bg-dark);
             color: var(--text-main);
             margin: 0;
-            overflow: hidden;
+            overflow-x: hidden;
+            min-height: 100vh;
         }
+
+        img { max-width: 100%; height: auto; }
 
         .app-loader {
             position: fixed;
@@ -67,8 +84,8 @@
 
         .app-container {
             display: grid;
-            grid-template-columns: 1fr 400px;
-            grid-template-rows: 70px 1fr;
+            grid-template-columns: 1fr var(--sidebar-width);
+            grid-template-rows: var(--header-height) 1fr;
             height: 100vh;
         }
 
@@ -81,7 +98,10 @@
             align-items: center;
             padding: 0 30px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            z-index: 100;
+            z-index: 1000 !important;
+            position: relative;
+            width: 100%;
+            overflow: hidden;
         }
 
         .logo {
@@ -101,6 +121,9 @@
             width: 100%;
             height: 100%;
             box-sizing: border-box;
+            max-width: 100%;
+            z-index: 1;
+            overflow: hidden;
         }
 
         .video-wrapper {
@@ -158,12 +181,13 @@
         /* Big Screen & 4K TV Scaling Improvements */
         @media (min-width: 2000px) {
             :root { font-size: 20px; }
-            .app-container { grid-template-columns: 1fr 550px; grid-template-rows: 90px 1fr; }
+            :root { --sidebar-width: 550px; --header-height: 90px; }
             .app-loader .spinner { width: 6rem; height: 6rem; border-width: 8px; }
             .app-loader p { font-size: 2rem; }
-            .now-playing-overlay { gap: 30px; padding: 60px; }
-            .now-playing-logo { width: 220px; height: 220px; border-radius: 20px; }
-            #nowPlayingName { font-size: 2.8rem; }
+            .now-playing-overlay { gap: 30px; padding: 40px; max-width: 800px; bottom: 100px; left: 100px; }
+            .now-playing-logo { width: 120px; height: 120px; border-radius: 20px; }
+            #nowPlayingName { font-size: 2.5rem; }
+            #nowPlayingProgram { font-size: 1.5rem; }
             #nowPlayingProgram { font-size: 1.8rem; margin-top: 10px; }
             #nowPlayingCat { font-size: 1.2rem; }
             .program-progress-container { width: 600px; margin: 20px 0; }
@@ -186,7 +210,7 @@
 
         @media (min-width: 3500px) {
             :root { font-size: 26px; }
-            .app-container { grid-template-columns: 1fr 800px; grid-template-rows: 120px 1fr; }
+            :root { --sidebar-width: 800px; --header-height: 120px; }
         }
 
         /* TV Mode specific scaling for 10-foot UI */
@@ -207,7 +231,7 @@
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.5);
-            z-index: 240;
+            z-index: 9998 !important;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.4s ease;
@@ -222,10 +246,11 @@
             position: fixed;
             top: 0;
             right: -280px;
-            width: 280px;
+            width: 80vw; /* Responsive width */
+            max-width: 280px; /* Maximum width */
             height: 100vh;
             background: var(--card-bg);
-            z-index: 250;
+            z-index: 9999 !important;
             padding: 30px 25px;
             box-sizing: border-box;
             /* box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); */
@@ -273,7 +298,15 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            min-width: 400px;
+            width: 94%;
+            left: 3%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
+        .now-playing-overlay > div:nth-child(2) {
+            flex: 1;
+            min-width: 0;
         }
 
         .now-playing-logo {
@@ -283,6 +316,7 @@
             border-radius: 6px;
             background: rgba(0, 0, 0, 0.2);
             padding: 4px;
+            flex-shrink: 0;
         }
 
         .now-playing-overlay.active {
@@ -312,17 +346,28 @@
             font-size: 1.1rem;
             font-weight: 700;
             color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         #nowPlayingCat {
             font-size: 0.75rem;
             color: var(--text-dim);
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         #nowPlayingProgram {
             font-size: 0.9rem;
             color: var(--text-main);
             margin-top: 5px;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .program-progress-container {
@@ -371,6 +416,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            max-width: 100vw;
         }
 
         .sidebar-controls {
@@ -448,11 +494,18 @@
             cursor: pointer;
             transition: all 0.2s ease;
             border: 1px solid transparent;
+            width: 100%;
+            overflow: hidden;
         }
 
         .channel-card:hover {
             background: rgba(59, 130, 246, 0.1);
-            transform: translateY(-2px);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .channel-card.focused {
+            background: var(--primary) !important;
+            border-color: white !important;
         }
 
         .channel-logo {
@@ -480,15 +533,15 @@
         }
 
         /* EPG Overlay Timeline Styles */
-        .epg-grid { display: flex; flex-direction: column; gap: 10px; }
-        .channel-row-epg { display: flex; background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); min-height: 110px; }
-        .channel-info-epg { width: 160px; min-width: 160px; padding: 15px; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-right: 1px solid rgba(255,255,255,0.05); }
+        .epg-grid { display: flex; flex-direction: column; gap: 15px; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; padding-bottom: 20px; }
+        .channel-row-epg { display: flex; background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); min-height: 110px; width: max-content; min-width: 100%; align-items: center; }
+        .channel-info-epg { width: 160px; min-width: 160px; padding: 15px; background: var(--bg-dark); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-right: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; position: sticky; left: 0; z-index: 10; }
         .channel-logo-epg { width: 44px; height: 44px; object-fit: contain; margin-bottom: 8px; border-radius: 4px; background: #000; }
         .channel-name-epg { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; color: var(--text-main); }
-        .program-timeline { display: flex; overflow-x: auto; flex-grow: 1; padding: 15px; gap: 12px; align-items: center; }
+        .program-timeline { display: flex; overflow-x: visible; flex-grow: 1; padding: 15px; gap: 12px; align-items: center; flex-wrap: nowrap; }
         .program-timeline::-webkit-scrollbar { height: 4px; }
         .program-timeline::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        .program-card-epg { min-width: 220px; max-width: 280px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; flex-shrink: 0; text-align: left; }
+        .program-card-epg { min-width: 250px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; flex-shrink: 0; text-align: left; }
         .program-card-epg:hover { background: rgba(59, 130, 246, 0.1); border-color: var(--primary); transform: translateY(-2px); }
         .program-card-epg.active { border-color: var(--primary); background: rgba(59, 130, 246, 0.05); }
         .program-title-epg { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
@@ -502,6 +555,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             margin-top: 2px;
+            min-width: 0;
         }
 
         .channel-cat {
@@ -528,6 +582,11 @@
             border-radius: 0 !important;
             padding: 40px 60px !important;
             box-shadow: none !important;
+            width: 95% !important;
+            max-height: 90vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-width: 100vw;
         }
 
         #channelModal .channel-card.focused {
@@ -592,6 +651,11 @@
             .app-container {
                 grid-template-columns: 1fr;
                 height: auto;
+                grid-template-rows: var(--header-height) auto;
+            }
+            
+            header {
+                position: sticky;
             }
 
             .player-area {
@@ -605,10 +669,11 @@
                 border-radius: 0;
                 height: auto;
                 aspect-ratio: 16 / 9;
+                width: 100%;
             }
 
             .now-playing-overlay {
-                position: static;
+                position: relative;
                 opacity: 1;
                 transform: none;
                 background: var(--card-bg);
@@ -619,6 +684,14 @@
                 border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                 padding: 15px 20px;
                 pointer-events: auto;
+                bottom: 0;
+                left: 0;
+                max-width: none;
+            }
+            
+            .program-progress-container {
+                width: 100%;
+                min-width: 0;
             }
 
             .mobile-only-btn {
@@ -633,6 +706,7 @@
                 font-size: 0.85rem;
                 margin: 0;
                 margin-left: auto;
+                flex-shrink: 0;
             }
 
             /* Header specific mobile styles */
@@ -821,19 +895,6 @@
                     style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Logout</button>
             </div>
             <button class="header-toggle-btn" onclick="toggleHeaderMenu()">☰</button>
-
-            <div id="menuBackdrop" class="menu-backdrop" onclick="toggleHeaderMenu()"></div>
-
-            <div id="mobileSlidingMenu" class="mobile-sliding-menu">
-                <button class="menu-close-btn" onclick="toggleHeaderMenu()">✕</button>
-                <span id="mobileUserDisplay" style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 25px; display: block; font-weight: 600;"></span>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <button onclick="openEpgGuide(); toggleHeaderMenu();" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">Program Guide</button>
-                    <button onclick="toggleTvMode(); toggleHeaderMenu();" style="background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">TV Mode</button>
-                    <a href="/admin.html" id="mobileAdminLink" style="display: none; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center;">Admin Panel</a>
-                    <button onclick="logout()" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem;">Logout</button>
-                </div>
-            </div>
         </header>
 
         <main class="player-area">
@@ -889,6 +950,19 @@
             </div>
             <ul id="playlist"></ul>
         </aside>
+    </div>
+
+    <div id="menuBackdrop" class="menu-backdrop" onclick="toggleHeaderMenu()"></div>
+
+    <div id="mobileSlidingMenu" class="mobile-sliding-menu">
+        <button class="menu-close-btn" onclick="toggleHeaderMenu()">✕</button>
+        <span id="mobileUserDisplay" style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 25px; display: block; font-weight: 600;"></span>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <button onclick="openEpgGuide(); toggleHeaderMenu();" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">Program Guide</button>
+            <button onclick="toggleTvMode(); toggleHeaderMenu();" style="background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">TV Mode</button>
+            <a href="/admin.html" id="mobileAdminLink" style="display: none; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center;">Admin Panel</a>
+            <button onclick="logout()" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem;">Logout</button>
+        </div>
     </div>
 
     <div id="loginModal" class="modal">

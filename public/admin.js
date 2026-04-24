@@ -19,6 +19,12 @@ function initEditors() {
     editEditor.setTheme("ace/theme/one_dark");
     editEditor.session.setMode("ace/mode/json");
     editEditor.getSession().setUseWorker(false);
+
+    // Ensure editors resize properly on mobile orientation changes to prevent cutting
+    window.addEventListener('resize', () => {
+        if (newEditor) newEditor.resize();
+        if (editEditor) editEditor.resize();
+    });
 }
 
 function getAuthHeaders() {
@@ -91,7 +97,7 @@ async function loadUsers() {
         const li = document.createElement('li');
         li.className = 'list-item';
         li.innerHTML = `
-            <div>
+            <div style="flex: 1; min-width: 200px;">
                 <span class="item-title">${user.username}</span>
                 <span class="item-meta">Role: ${user.role} | ID: ${user.id}</span>
             </div>
@@ -417,8 +423,11 @@ function validateEditPlaylistJson() { validateJson(editEditor); }
 function toggleAdminMenu() {
     const menu = document.getElementById('adminSlidingMenu');
     const backdrop = document.getElementById('adminMenuBackdrop');
-    if (menu) menu.classList.toggle('active');
-    if (backdrop) backdrop.classList.toggle('active');
+    if (menu) {
+        const isActive = menu.classList.toggle('active');
+        if (backdrop) backdrop.classList.toggle('active');
+        document.body.style.overflow = isActive ? 'hidden' : '';
+    }
 }
 
 document.addEventListener('DOMContentLoaded', verifyAdmin);

@@ -743,6 +743,9 @@ function toggleSidebar() {
     if (!sidebar || !btn) return;
     const isActive = sidebar.classList.toggle('active');
     btn.innerText = isActive ? '✕ Close' : '☰ Channels';
+
+    // Prevent background scrolling and reveal issues on mobile
+    document.body.style.overflow = isActive ? 'hidden' : '';
 }
 
 function detectTvMode() {
@@ -1094,8 +1097,11 @@ function toggleAppLoader(show) {
 function toggleHeaderMenu() {
     const menu = document.getElementById('mobileSlidingMenu');
     const backdrop = document.getElementById('menuBackdrop');
-    if (menu) menu.classList.toggle('active');
-    if (backdrop) backdrop.classList.toggle('active');
+    if (menu) {
+        const isActive = menu.classList.toggle('active');
+        if (backdrop) backdrop.classList.toggle('active');
+        document.body.style.overflow = isActive ? 'hidden' : '';
+    }
 }
 
 document.addEventListener('DOMContentLoaded', verify);
