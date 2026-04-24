@@ -214,11 +214,15 @@
         }
 
         /* TV Mode specific scaling for 10-foot UI */
-        body.tv-mode .now-playing-overlay { gap: 40px; }
+        body.tv-mode .now-playing-overlay { gap: 40px; max-width: min(90vw, 1000px); width: auto; }
+        body.tv-mode .now-playing-label { font-size: 1rem; letter-spacing: 3px; }
         body.tv-mode .now-playing-logo { width: 180px; height: 180px; }
         body.tv-mode #nowPlayingName { font-size: 3rem; }
         body.tv-mode #nowPlayingProgram { font-size: 1.8rem; }
-        body.tv-mode .program-progress-container { width: 600px; }
+        body.tv-mode .program-progress-container { width: 100%; max-width: 800px; margin: 25px 0; }
+        body.tv-mode .program-times { font-size: 1.2rem; margin-bottom: 8px; }
+        body.tv-mode .progress-bar-bg { height: 12px; border-radius: 6px; }
+        body.tv-mode #nowPlayingCat { font-size: 1.1rem; }
         
         body.tv-mode .channel-info-epg { width: 220px; min-width: 220px; }
         body.tv-mode .channel-logo-epg { width: 80px; height: 80px; }
@@ -714,6 +718,10 @@
                 display: none !important;
             }
 
+            #mobileTvModeBtn {
+                display: none !important;
+            }
+
             .header-toggle-btn {
                 display: block;
                 margin-left: auto;
@@ -959,7 +967,7 @@
         <span id="mobileUserDisplay" style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 25px; display: block; font-weight: 600;"></span>
         <div style="display: flex; flex-direction: column; gap: 15px;">
             <button onclick="openEpgGuide(); toggleHeaderMenu();" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">Program Guide</button>
-            <button onclick="toggleTvMode(); toggleHeaderMenu();" style="background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">TV Mode</button>
+            <button id="mobileTvModeBtn" onclick="toggleTvMode(); toggleHeaderMenu();" style="background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">TV Mode</button>
             <a href="/admin.html" id="mobileAdminLink" style="display: none; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center;">Admin Panel</a>
             <button onclick="logout()" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem;">Logout</button>
         </div>
