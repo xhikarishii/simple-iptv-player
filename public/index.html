@@ -570,11 +570,30 @@
         #nowPlayingCat {
             font-size: 0.75rem;
             color: var(--text-dim);
-            display: block;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        .resolution-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 2px 7px;
+            border-radius: 5px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-left: 8px;
+            text-transform: uppercase;
+        }
+
+        .resolution-badge.res-sd   { background: rgba(100, 116, 139, 0.4); color: #94a3b8; border: 1px solid rgba(100,116,139,0.4); }
+        .resolution-badge.res-hd   { background: rgba(59, 130, 246, 0.25); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+        .resolution-badge.res-fhd  { background: rgba(139, 92, 246, 0.25); color: #a78bfa; border: 1px solid rgba(139,92,246,0.4); }
+        .resolution-badge.res-qhd  { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16,185,129,0.4); }
+        .resolution-badge.res-4k   { background: rgba(245, 158, 11, 0.25); color: #fbbf24; border: 1px solid rgba(245,158,11,0.5); }
+        .resolution-badge.res-8k   { background: rgba(239, 68, 68, 0.25);  color: #f87171; border: 1px solid rgba(239,68,68,0.5);  }
 
         #nowPlayingProgram {
             font-size: 0.9rem;
@@ -1336,8 +1355,11 @@
                             </div>
                         </div>
 
-                        <span id="nowPlayingCat">Category</span>
+                        <div style="display: flex; align-items: center; margin-top: 4px; min-width: 0;">
+                            <span id="nowPlayingCat">Category</span>
+                        </div>
                     </div>
+                    <span id="resBadge" class="resolution-badge" style="display:none; margin-left: auto; align-self: flex-start; flex-shrink: 0;"></span>
                 </div>
 
                 <hr style="border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 0;">

@@ -215,6 +215,23 @@ async function initApp() {
                 },
                 ignoreDrmInfo: false,
                 defaultPresentationDelay: 2, // Start only 2s behind the live edge (was 3s)
+
+                // --- DASH-specific manifest tuning ---
+                dash: {
+                    // Ignore manifest-advertised suggested delays; we control latency ourselves
+                    ignoreMinBufferTime: true,
+
+                    // Auto-correct clock drift between client and DASH server using UTCTiming
+                    // elements in the manifest — critical for accurate live edge positioning
+                    autoCorrectDrift: true,
+
+                    // Tolerate imperfect segment duration reporting (common in live IPTV encoders)
+                    ignoreSuggestedPresentationDelay: true,
+
+                    // Parse availability window from the manifest so Shaka knows
+                    // exactly which segments are accessible on the CDN
+                    enableFastSwitching: true,
+                },
             },
 
             abr: {
@@ -224,7 +241,7 @@ async function initApp() {
                 defaultBandwidthEstimate: 200000, // Assume only 200 Kbps at cold start
                 bandwidthUpgradeTarget: 0.80,     // Upgrade when using <80% of bandwidth
                 bandwidthDowngradeTarget: 0.90,   // Drop quality quickly at >90% saturation
-                switchInterval: 3,                // Re-evaluate quality every 3s (was 4s)
+                switchInterval: 3,                // Re-evaluate quality every 3s
                 restrictions: {
                     minBandwidth: 0,              // No floor — allow the lowest quality tier
                 },
@@ -232,6 +249,8 @@ async function initApp() {
         });
 
         player.addEventListener('trackschanged', populateTracks);
+        // Update resolution badge whenever ABR switches quality mid-stream
+        player.addEventListener('adaptation', updateResolutionBadge);
 
         video.addEventListener('play', () => document.getElementById('btnPlayPause').innerText = '⏸');
         video.addEventListener('pause', () => document.getElementById('btnPlayPause').innerText = '▶');
@@ -1023,6 +1042,39 @@ function populateTracks() {
     } else {
         btnSubtitle.style.display = 'none';
         currentSubtitleTracks = [];
+    }
+
+    // Resolution Badge
+    updateResolutionBadge();
+}
+
+function getResolutionLabel(height) {
+    if (!height) return null;
+    if (height >= 4320) return { label: '8K',    cls: 'res-8k'  };
+    if (height >= 2160) return { label: '4K',    cls: 'res-4k'  };
+    if (height >= 1440) return { label: '2K',    cls: 'res-qhd' };
+    if (height >= 1080) return { label: '1080p', cls: 'res-fhd' };
+    if (height >= 720)  return { label: '720p',  cls: 'res-hd'  };
+    if (height >= 480)  return { label: '480p',  cls: 'res-sd'  };
+    if (height >= 360)  return { label: '360p',  cls: 'res-sd'  };
+    return                     { label: `${height}p`, cls: 'res-sd' };
+}
+
+function updateResolutionBadge() {
+    const badge = document.getElementById('resBadge');
+    if (!badge || !player) return;
+
+    const variants = player.getVariantTracks();
+    const active = variants.find(t => t.active);
+    const height = active ? (active.height || active.originalVideoId) : null;
+    const info = getResolutionLabel(height);
+
+    if (info) {
+        badge.textContent = info.label;
+        badge.className = 'resolution-badge ' + info.cls;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
     }
 }
 
