@@ -330,7 +330,7 @@ async function initApp() {
 
             // 1. External URLs (The Mixed Content Fixer & UA Spoofing)
             const isExternal = (url.startsWith('http://') || url.startsWith('https://')) && !url.includes(window.location.host);
-            
+
             // We MUST use the proxy if:
             // a) It's HTTP (to avoid Mixed Content blocks on HTTPS sites)
             // b) We have a custom User-Agent to spoof (browsers won't let us spoof UA directly on cross-origin requests)
@@ -346,12 +346,12 @@ async function initApp() {
 
                 // Construct the proxied URL
                 let proxiedUrl = window.location.origin + '/proxy/' + url;
-                
+
                 // Append the User-Agent as a query parameter for the Nginx proxy to consume
                 if (globalSettings.userAgent) {
                     proxiedUrl += (proxiedUrl.includes('?') ? '&' : '?') + 'ua=' + encodeURIComponent(globalSettings.userAgent);
                 }
-                
+
                 request.uris[0] = proxiedUrl;
             }
 
@@ -362,7 +362,7 @@ async function initApp() {
                     const brokenPath = url.replace(window.location.origin, '');
                     // Reconstruct the proper proxy URL using the saved upstream host
                     let proxiedUrl = window.location.origin + '/proxy/' + currentUpstreamProtocol + '://' + currentUpstreamHost + brokenPath;
-                    
+
                     if (globalSettings.userAgent) {
                         proxiedUrl += (proxiedUrl.includes('?') ? '&' : '?') + 'ua=' + encodeURIComponent(globalSettings.userAgent);
                     }
@@ -549,7 +549,7 @@ async function loadAllEpgData(playlists) {
             let proxiedEpgUrl = isExternal
                 ? window.location.origin + '/proxy/' + epgUrl
                 : epgUrl;
-            
+
             // Append User-Agent if proxied
             if (isExternal && globalSettings.userAgent) {
                 proxiedEpgUrl += (proxiedEpgUrl.includes('?') ? '&' : '?') + 'ua=' + encodeURIComponent(globalSettings.userAgent);
@@ -1083,22 +1083,71 @@ function cycleAspectRatio() {
 function applyAspectRatio() {
     const ratio = aspectRatios[aspectRatioIndex];
     const video = document.getElementById('video');
-    if (!video) return;
-    
-    // Reset any previous custom styles
-    video.style.width = '100%';
-    video.style.height = '100%';
-    video.style.maxWidth = '100%';
-    video.style.maxHeight = '100%';
-    video.style.margin = 'auto';
-    video.style.aspectRatio = ratio.ratio;
-    video.style.objectFit = ratio.fit;
+    const wrapper = document.getElementById('videoWrapper');
+    if (!video || !wrapper) return;
 
-    if (ratio.label !== 'Source' && ratio.label !== 'Fill') {
-        // For forced ratios, we need to let aspect-ratio drive dimensions within the container
-        video.style.width = 'auto';
-        video.style.height = 'auto';
+    // Measure the actual available space in the wrapper right now
+    const wrapperW = wrapper.clientWidth;
+    const wrapperH = wrapper.clientHeight;
+
+    // Reset all inline overrides so we start from a clean slate
+    video.style.width = '';
+    video.style.height = '';
+    video.style.maxWidth = '';
+    video.style.maxHeight = '';
+    video.style.margin = 'auto';
+    video.style.objectFit = 'contain';
+    video.style.aspectRatio = '';
+    video.style.display = 'block';
+
+    if (ratio.label === 'Source') {
+        // Let the browser fit the video's native intrinsic dimensions inside the wrapper
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.objectFit = 'contain';
+
+    } else if (ratio.label === 'Fill') {
+        // Stretch to completely fill the wrapper — may crop if aspect ratios differ
+        video.style.width = wrapperW + 'px';
+        video.style.height = wrapperH + 'px';
+        video.style.objectFit = 'fill';
+
+    } else {
+        // Fixed aspect ratio (16:9 or 4:3):
+        // Compute the largest box with the target ratio that fits inside the wrapper.
+        const [rW, rH] = ratio.ratio.split('/').map(Number);
+        const targetRatio = rW / rH;
+        const wrapperRatio = wrapperW / wrapperH;
+
+        let vidW, vidH;
+        if (wrapperRatio > targetRatio) {
+            // Wrapper is wider than the target ratio → constrain by height
+            vidH = wrapperH;
+            vidW = Math.round(vidH * targetRatio);
+        } else {
+            // Wrapper is taller than the target ratio → constrain by width
+            vidW = wrapperW;
+            vidH = Math.round(vidW / targetRatio);
+        }
+
+        video.style.width = vidW + 'px';
+        video.style.height = vidH + 'px';
+        video.style.objectFit = 'fill'; // fill the explicit box we just sized
     }
+}
+
+// Re-apply on window resize so ratios stay correct when the user resizes or goes fullscreen
+let _ratioResizeObserver = null;
+function attachRatioResizeObserver() {
+    const wrapper = document.getElementById('videoWrapper');
+    if (!wrapper || _ratioResizeObserver) return;
+    _ratioResizeObserver = new ResizeObserver(() => {
+        // Only re-apply if we're not in Source mode (Source is pure CSS, no pixel math needed)
+        if (aspectRatios[aspectRatioIndex].label !== 'Source') {
+            applyAspectRatio();
+        }
+    });
+    _ratioResizeObserver.observe(wrapper);
 }
 
 function loadLocalPreferences() {
@@ -1106,21 +1155,23 @@ function loadLocalPreferences() {
     if (savedRatio !== null) {
         aspectRatioIndex = parseInt(savedRatio);
     }
+    attachRatioResizeObserver();
 }
+
 
 function showRatioIndicator(text) {
     const indicator = document.getElementById('ratioIndicator');
     if (!indicator) return;
-    
+
     indicator.innerText = text;
     indicator.classList.add('show');
-    
+
     if (indicator.dataset.timeout) clearTimeout(parseInt(indicator.dataset.timeout));
-    
+
     const timeout = setTimeout(() => {
         indicator.classList.remove('show');
     }, 2000);
-    
+
     indicator.dataset.timeout = String(timeout);
 }
 
@@ -1172,14 +1223,14 @@ function populateTracks() {
 
 function getResolutionLabel(height) {
     if (!height) return null;
-    if (height >= 4320) return { label: '8K',    cls: 'res-8k'  };
-    if (height >= 2160) return { label: '4K',    cls: 'res-4k'  };
-    if (height >= 1440) return { label: '2K',    cls: 'res-qhd' };
+    if (height >= 4320) return { label: '8K', cls: 'res-8k' };
+    if (height >= 2160) return { label: '4K', cls: 'res-4k' };
+    if (height >= 1440) return { label: '2K', cls: 'res-qhd' };
     if (height >= 1080) return { label: '1080p', cls: 'res-fhd' };
-    if (height >= 720)  return { label: '720p',  cls: 'res-hd'  };
-    if (height >= 480)  return { label: '480p',  cls: 'res-sd'  };
-    if (height >= 360)  return { label: '360p',  cls: 'res-sd'  };
-    return                     { label: `${height}p`, cls: 'res-sd' };
+    if (height >= 720) return { label: '720p', cls: 'res-hd' };
+    if (height >= 480) return { label: '480p', cls: 'res-sd' };
+    if (height >= 360) return { label: '360p', cls: 'res-sd' };
+    return { label: `${height}p`, cls: 'res-sd' };
 }
 
 function updateResolutionBadge() {
