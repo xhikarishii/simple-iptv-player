@@ -18,7 +18,7 @@ let playerClickTimer = null;
 async function verify() {
     const token = sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken');
     if (!token) return showLogin();
-    
+
     try {
         const res = await fetch('/api/auth/check', { headers: { 'Authorization': `Bearer ${token}` } });
         if (res.ok) {
@@ -26,13 +26,13 @@ async function verify() {
 
             // Detect TV environment early to optimize boot and security checks
             detectTvMode();
-            
+
             toggleAppLoader(true);
-            
+
             // 1. Set global session data FIRST
-            dynamicSecretKey = data.clientKey; 
-            currentUserId = String(data.id); 
-            
+            dynamicSecretKey = data.clientKey;
+            currentUserId = String(data.id);
+
             // Update desktop header elements
             document.getElementById('currentUserDisplay').innerText = `👤 ${data.username}`; // Desktop
             document.getElementById('adminLink').style.display = data.role === 'admin' ? 'inline-block' : 'none'; // Desktop
@@ -45,20 +45,20 @@ async function verify() {
             document.getElementById('playerUI').style.display = 'grid';
 
             // 2. Start the player engine (Note: initApp no longer calls loadPlaylists internally)
-            await initApp(); 
+            await initApp();
 
             // 3. Load data and trigger the resume logic (epg loading happens inside)
-            await loadPlaylists(); 
+            await loadPlaylists();
 
             toggleAppLoader(false);
         } else if (res.status === 401 || res.status === 403) {
-            showLogin(); 
+            showLogin();
         } else {
             console.error('Server error during auth check');
             const loader = document.getElementById('appLoader');
             if (loader) loader.innerHTML = "<h3 style='color:red;'>Server Error. Please refresh.</h3>";
         }
-    } catch (e) { 
+    } catch (e) {
         console.error('Network error during auth check', e);
         const loader = document.getElementById('appLoader');
         if (loader) loader.innerHTML = "<h3 style='color:red;'>Network Error. Please refresh.</h3>";
@@ -77,7 +77,7 @@ function showLogin() {
     toggleAppLoader(false);
 
     document.getElementById('loginModal').style.display = 'flex';
-    
+
     const noPlaylistModal = document.getElementById('noPlaylistModal');
     if (noPlaylistModal) noPlaylistModal.style.display = 'none';
 
@@ -194,7 +194,7 @@ async function initApp() {
                     const urlObj = new URL(url);
                     currentUpstreamProtocol = urlObj.protocol.replace(':', '');
                     currentUpstreamHost = urlObj.host;
-                } catch (e) {}
+                } catch (e) { }
 
                 // Force the insecure request through our secure Nginx proxy
                 request.uris[0] = window.location.origin + '/proxy/' + url;
@@ -224,7 +224,7 @@ function resetOverlayIdleTimer() {
 
     overlay.classList.add('active');
     if (overlayIdleTimer) clearTimeout(overlayIdleTimer);
-    
+
     overlayIdleTimer = setTimeout(() => {
         overlay.classList.remove('active');
     }, 5000); // Hide after 5 seconds of inactivity
@@ -258,31 +258,31 @@ function decryptPayload(encryptedPayload) {
 }
 
 async function loadPlaylists() {
-    if (checkDevTools()) return; 
+    if (checkDevTools()) return;
 
     try {
-        const res = await fetch('/api/playlists', { 
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('jwtToken')}` } 
+        const res = await fetch('/api/playlists', {
+            headers: { 'Authorization': `Bearer ${sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken')}` }
         });
         const data = await res.json();
-        
+
         if (data.payload) {
             allPlaylists = decryptPayload(data.payload);
-            
+
             // Block initialization until all EPG data is loaded and parsed
             await loadAllEpgData(allPlaylists);
-            
+
             // Refresh UI components that depend on EPG data
             if (lastPlayedUrl) updateNowPlayingEPG(true);
         }
 
         const playlistSelector = document.getElementById('playlistSelector');
         if (playlistSelector && allPlaylists.length > 0) {
-            playlistSelector.innerHTML = allPlaylists.map((p, i) => 
+            playlistSelector.innerHTML = allPlaylists.map((p, i) =>
                 `<option value="${i}">${p.name}</option>`
             ).join('');
-            
-            renderCurrentPlaylist(); 
+
+            renderCurrentPlaylist();
 
             // --- THE FIX: ADD A SETTLE DELAY FOR AUTOPLAY ---
             setTimeout(() => {
@@ -302,8 +302,8 @@ async function loadPlaylists() {
 
                 if (foundChannel) {
                     playlistSelector.value = foundPlaylistIndex;
-                    renderCurrentPlaylist(); 
-                    playChannel(foundChannel.url, savedKey, true); 
+                    renderCurrentPlaylist();
+                    playChannel(foundChannel.url, savedKey, true);
                 } else if (allPlaylists[0].channels.length > 0) {
                     const first = allPlaylists[0].channels[0];
                     playChannel(first.url, first.key ? encodeURIComponent(first.key) : '', true);
@@ -340,7 +340,7 @@ function parseXmltvDate(dateStr) {
             // If no timezone, assume UTC to avoid local timezone issues
             iso += 'Z'; // Or could assume local, but UTC is safer for consistent comparison
         }
-        
+
         const date = new Date(iso);
         return isNaN(date.getTime()) ? null : date;
     }
@@ -383,9 +383,11 @@ async function loadAllEpgData(playlists) {
         if (epgDataCache[epgUrl]) continue; // Already loaded
 
         try {
-            // Use the proxy only for HTTP EPG URLs to prevent mixed-content blocks
-            const proxiedEpgUrl = epgUrl.startsWith('http://') 
-                ? window.location.origin + '/proxy/' + epgUrl 
+            // Always proxy EPG requests — external EPG servers don't send CORS headers,
+            // so both http:// and https:// URLs will fail without the proxy.
+            const isExternal = epgUrl.startsWith('http://') || epgUrl.startsWith('https://');
+            const proxiedEpgUrl = isExternal
+                ? window.location.origin + '/proxy/' + epgUrl
                 : epgUrl;
             const res = await fetch(proxiedEpgUrl);
             if (!res.ok) throw new Error(`Failed to fetch EPG from ${epgUrl}`);
@@ -444,7 +446,7 @@ function getProgramForChannel(epgId, epgUrlString) {
         // Try case-insensitive lookup
         const cacheKey = Object.keys(cache).find(k => k.trim().toLowerCase() === String(epgId).trim().toLowerCase());
         const channelEpg = cacheKey ? cache[cacheKey] : null;
-        
+
         if (channelEpg) {
             for (const program of channelEpg) {
                 if (program.start && program.stop && now >= program.start && now < program.stop) {
@@ -517,7 +519,7 @@ function renderCurrentPlaylist() {
     if (clearBtn) clearBtn.style.display = 'none';
 
     const categories = [...new Set(selected.channels.map(c => c.cat || 'Uncategorized'))];
-    document.getElementById('categoryFilter').innerHTML = '<option value="all">All Categories</option>' + 
+    document.getElementById('categoryFilter').innerHTML = '<option value="all">All Categories</option>' +
         categories.map(c => `<option value="${c}">${c}</option>`).join('');
 
     renderChannels(selected.channels);
@@ -537,7 +539,7 @@ function switchPlaylist() {
 
     // Render Categories
     const categories = [...new Set(channels.map(c => c.cat || 'Uncategorized'))];
-    document.getElementById('categoryFilter').innerHTML = '<option value="all">All Categories</option>' + 
+    document.getElementById('categoryFilter').innerHTML = '<option value="all">All Categories</option>' +
         categories.map(c => `<option value="${c}">${c}</option>`).join('');
 
     renderChannels(channels);
@@ -600,7 +602,7 @@ function renderChannels(channels) {
     listElement.innerHTML = channels.map(channel => {
         const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
         const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
-        
+
         const program = getProgramForChannel(channel.epgId, epgUrl);
         const programHtml = program ? `<span class="channel-program">🔴 ${program.title}</span>` : '';
 
@@ -794,13 +796,13 @@ function toggleSidebar() {
 
 function detectTvMode() {
     const ua = navigator.userAgent;
-    
+
     // Explicit markers for major Smart TV platforms, STBs, and Consoles
     const tvMarkers = /SmartTV|SMART-TV|Android ?TV|GoogleTV|AppleTV|Tizen|WebOS|HbbTV|NetCast|Viera|AFT[A-Z]+|FireTV|Fire OS|CrKey|Chromecast|Large Screen|MiTV|MiBOX|SonyBravia|BRAVIA|NVIDIA SHIELD|Roku|PlayStation|Xbox|Nintendo|Vizio|Hisense|Panasonic|Philips|Sharp|VIDAA/i;
-    
+
     // Heuristic: Check for Android + TV/Box combination
     const isAndroidTv = /Android/i.test(ua) && (/TV/i.test(ua) || /Box/i.test(ua) || /Nexus Player/i.test(ua));
-    
+
     // Generic fallback: Check if claiming to be TV/STB, but rule out regular desktop/mobile
     const isGenericTv = /(TV|STB|Set-Top Box|10-foot|SetTopBox)/i.test(ua) && !/(iPhone|iPad|iPod|Windows|Mac OS X)/i.test(ua);
 
@@ -890,10 +892,10 @@ function populateTracks() {
 
 function cycleAudioTrack() {
     if (currentAudioTracks.length <= 1) return;
-    
+
     audioTrackIndex++;
     if (audioTrackIndex >= currentAudioTracks.length) audioTrackIndex = 0;
-    
+
     const track = currentAudioTracks[audioTrackIndex];
     if (track) {
         player.selectVariantTrack(track, true);
@@ -903,13 +905,13 @@ function cycleAudioTrack() {
 
 function cycleSubtitleTrack() {
     if (currentSubtitleTracks.length === 0) return;
-    
+
     subtitleTrackIndex++;
     // Include -1 (Off) in the cycle
     if (subtitleTrackIndex >= currentSubtitleTracks.length) subtitleTrackIndex = -1;
-    
+
     const btnSubtitle = document.getElementById('btnSubtitleTrack');
-    
+
     if (subtitleTrackIndex === -1) {
         player.setTextTrackVisibility(false);
         btnSubtitle.innerText = '💬 Off';
@@ -925,9 +927,9 @@ function cycleSubtitleTrack() {
 
 function navigateChannel(direction) {
     if (!currentFilteredChannels || currentFilteredChannels.length === 0) return;
-    
+
     let index = currentFilteredChannels.findIndex(c => c.url === lastPlayedUrl);
-    
+
     // Loop logic
     let nextIndex = index + direction;
     if (nextIndex < 0) nextIndex = currentFilteredChannels.length - 1;
@@ -1121,7 +1123,7 @@ function updateEpgOverlayFocus() {
     rows.forEach((row, rIdx) => {
         const cards = row.querySelectorAll('.program-card-epg');
         const info = row.querySelector('.channel-info-epg');
-        
+
         if (rIdx === epgChannelIndex) {
             row.style.background = 'rgba(59, 130, 246, 0.1)';
             // Scroll row into view vertically
@@ -1194,7 +1196,7 @@ function generateChannelListHtml(channels, epgUrl) {
     return channels.map((channel) => {
         const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
         const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
-        
+
         const program = getProgramForChannel(channel.epgId, epgUrl);
         const programHtml = program ? `<span class="channel-program">🔴 ${program.title}</span>` : '';
         const isPlaying = channel.url === lastPlayedUrl;
@@ -1238,17 +1240,17 @@ function renderChannelOverlay() {
 }
 
 // Circular/Infinite Scrolling Logic
-document.getElementById('channelOverlayContainer').addEventListener('scroll', function() {
+document.getElementById('channelOverlayContainer').addEventListener('scroll', function () {
     const scrollContainer = this;
     const totalHeight = scrollContainer.scrollHeight;
     if (totalHeight === 0) return;
-    
+
     const thirdHeight = totalHeight / 3;
-    
+
     // If scrolled too high (into the first copy), jump down to the middle copy
     if (scrollContainer.scrollTop < thirdHeight * 0.2) {
         scrollContainer.scrollTop += thirdHeight;
-    } 
+    }
     // If scrolled too low (into the third copy), jump up to the middle copy
     else if (scrollContainer.scrollTop > thirdHeight * 2.8) {
         scrollContainer.scrollTop -= thirdHeight;
@@ -1277,7 +1279,7 @@ function renderEpgOverlay() {
             const cacheKey = Object.keys(cache).find(k => k.toLowerCase() === (ch.epgId || '').toLowerCase());
             if (cacheKey) {
                 // Show current and upcoming programs (limit to 12)
-                programs = cache[cacheKey].filter(p => p.stop > now).sort((a,b) => a.start - b.start).slice(0, 12);
+                programs = cache[cacheKey].filter(p => p.stop > now).sort((a, b) => a.start - b.start).slice(0, 12);
                 break;
             }
         }
