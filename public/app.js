@@ -163,49 +163,70 @@ async function initApp() {
         // Apply saved aspect ratio immediately
         applyAspectRatio();
 
-        // Optimized for fast IPTV channel switching and adaptive bitrate startup
+        // Aggressive low-latency configuration — minimizes delay to live edge
         player.configure({
             streaming: {
-                bufferingGoal: 3,           // Only buffer 3s ahead — faster initial start
-                rebufferingGoal: 0.5,       // Resume after just 0.5s of data (was 2s)
-                bufferBehind: 10,           // Trim back-buffer aggressively (was 30s)
-                jumpLargeGaps: true,        // Auto-skip gaps in live streams
+                // --- Buffer: as small as safely possible ---
+                bufferingGoal: 2,           // Only pre-buffer 2s ahead of playback head
+                rebufferingGoal: 0.25,      // Resume after just 0.25s — near-instant recovery
+                bufferBehind: 5,            // Keep only 5s of back-buffer (saves memory)
+
+                // --- Startup & Gap Handling ---
+                jumpLargeGaps: true,        // Auto-skip timeline gaps in live streams
+                smallGapLimit: 0.5,         // Treat gaps <0.5s as small and jump them
+                jumpSmallGaps: true,        // Also jump those small gaps automatically
                 durationBackoff: 1,
-                retryParameters: {
-                    maxAttempts: 5,
-                    baseDelay: 1000,
-                    backoffFactor: 1.5,
-                    fuzzFactor: 0.5,
-                    timeout: 15000,
-                },
-                lowLatencyMode: false,      // Not all IPTV CDNs support LL-HLS
-                inaccurateManifestTolerance: 10,
+
+                // --- Stall Detection: be aggressive ---
                 stallEnabled: true,
-                stallThreshold: 0.5,        // Detect stalls in 0.5s (was 1s)
-                stallSkip: 0.1,
+                stallThreshold: 0.3,        // Call a stall after 0.3s of no progress
+                stallSkip: 0.1,             // Skip 0.1s forward to break the stall
+
+                // --- Live Stream: hug the live edge ---
+                liveSync: {
+                    enabled: true,
+                    targetLatency: 3,       // Target 3s behind the live edge
+                    targetLatencyTolerance: 1, // ±1s tolerance before speed adjustment
+                    maxPlaybackRate: 1.1,   // Speed up by 10% max to catch the live edge
+                    minPlaybackRate: 0.9,   // Slow down by 10% max to avoid getting too close
+                },
+
+                // --- Retries: fail fast, retry fast ---
+                retryParameters: {
+                    maxAttempts: 4,
+                    baseDelay: 500,         // Start retrying sooner (was 1000ms)
+                    backoffFactor: 1.3,     // Gentler backoff (was 1.5)
+                    fuzzFactor: 0.3,
+                    timeout: 8000,          // Fail a stalled request after 8s (was 15s)
+                },
+
+                // Standard CDN compatibility
+                lowLatencyMode: false,
+                inaccurateManifestTolerance: 10,
             },
+
             manifest: {
                 retryParameters: {
-                    maxAttempts: 5,
-                    baseDelay: 500,
-                    backoffFactor: 1.5,
-                    fuzzFactor: 0.5,
-                    timeout: 15000,
+                    maxAttempts: 4,
+                    baseDelay: 300,
+                    backoffFactor: 1.3,
+                    fuzzFactor: 0.3,
+                    timeout: 8000,
                 },
                 ignoreDrmInfo: false,
-                defaultPresentationDelay: 3, // Join live stream 3s behind edge (was 5s)
+                defaultPresentationDelay: 2, // Start only 2s behind the live edge (was 3s)
             },
+
             abr: {
                 enabled: true,
-                // Start at the LOWEST quality tier so playback begins instantly,
-                // then ramp up as bandwidth headroom is confirmed.
-                defaultBandwidthEstimate: 500000, // Assume only 500 Kbps initially (worst-case)
-                bandwidthUpgradeTarget: 0.85,     // Upgrade quality when using <85% of bandwidth
-                bandwidthDowngradeTarget: 0.95,   // Drop quality when using >95% of bandwidth
-                switchInterval: 4,                // Allow quality switches every 4s (responsive)
+                // Start at the lowest available quality for instant playback,
+                // then ABR ramps up quality as bandwidth is proven.
+                defaultBandwidthEstimate: 200000, // Assume only 200 Kbps at cold start
+                bandwidthUpgradeTarget: 0.80,     // Upgrade when using <80% of bandwidth
+                bandwidthDowngradeTarget: 0.90,   // Drop quality quickly at >90% saturation
+                switchInterval: 3,                // Re-evaluate quality every 3s (was 4s)
                 restrictions: {
-                    // No hard caps — let the ABR pick the best quality naturally
-                    minBandwidth: 0,
+                    minBandwidth: 0,              // No floor — allow the lowest quality tier
                 },
             },
         });
