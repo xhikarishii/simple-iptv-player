@@ -163,15 +163,14 @@ async function initApp() {
         // Apply saved aspect ratio immediately
         applyAspectRatio();
 
-        // Live-streaming optimized configuration — minimal buffer for fast channel switching
+        // Optimized for fast IPTV channel switching and adaptive bitrate startup
         player.configure({
             streaming: {
-                // Keep only 3s of back-buffer; no need for rewind on live IPTV
-                bufferingGoal: 5,           // Target seconds to buffer ahead
-                rebufferingGoal: 2,         // Seconds needed before resuming after a stall
-                bufferBehind: 30,           // Max seconds of back-buffer to retain
+                bufferingGoal: 3,           // Only buffer 3s ahead — faster initial start
+                rebufferingGoal: 0.5,       // Resume after just 0.5s of data (was 2s)
+                bufferBehind: 10,           // Trim back-buffer aggressively (was 30s)
                 jumpLargeGaps: true,        // Auto-skip gaps in live streams
-                durationBackoff: 1,         // Retry duration polling faster on live
+                durationBackoff: 1,
                 retryParameters: {
                     maxAttempts: 5,
                     baseDelay: 1000,
@@ -179,11 +178,11 @@ async function initApp() {
                     fuzzFactor: 0.5,
                     timeout: 15000,
                 },
-                lowLatencyMode: false,      // Not all IPTV CDNs support LL-HLS; keep off
+                lowLatencyMode: false,      // Not all IPTV CDNs support LL-HLS
                 inaccurateManifestTolerance: 10,
                 stallEnabled: true,
-                stallThreshold: 1,          // Detect stalls quickly (1s)
-                stallSkip: 0.1,             // Skip 0.1s ahead to recover from micro-stalls
+                stallThreshold: 0.5,        // Detect stalls in 0.5s (was 1s)
+                stallSkip: 0.1,
             },
             manifest: {
                 retryParameters: {
@@ -193,9 +192,21 @@ async function initApp() {
                     fuzzFactor: 0.5,
                     timeout: 15000,
                 },
-                // Allow manifest updates to continue even with minor parse errors
                 ignoreDrmInfo: false,
-                defaultPresentationDelay: 5, // Join the live stream 5s behind the live edge
+                defaultPresentationDelay: 3, // Join live stream 3s behind edge (was 5s)
+            },
+            abr: {
+                enabled: true,
+                // Start at the LOWEST quality tier so playback begins instantly,
+                // then ramp up as bandwidth headroom is confirmed.
+                defaultBandwidthEstimate: 500000, // Assume only 500 Kbps initially (worst-case)
+                bandwidthUpgradeTarget: 0.85,     // Upgrade quality when using <85% of bandwidth
+                bandwidthDowngradeTarget: 0.95,   // Drop quality when using >95% of bandwidth
+                switchInterval: 4,                // Allow quality switches every 4s (responsive)
+                restrictions: {
+                    // No hard caps — let the ABR pick the best quality naturally
+                    minBandwidth: 0,
+                },
             },
         });
 
