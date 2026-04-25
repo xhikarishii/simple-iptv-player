@@ -15,6 +15,13 @@ let epgChannelIndex = 0; // Vertical row selection
 let epgProgramIndex = 0; // Horizontal card selection
 let playerClickTimer = null;
 let globalSettings = {};
+let aspectRatioIndex = 0;
+const aspectRatios = [
+    { label: 'Source', fit: 'contain', ratio: 'auto' },
+    { label: '16:9', fit: 'fill', ratio: '16/9' },
+    { label: '4:3', fit: 'fill', ratio: '4/3' },
+    { label: 'Fill', fit: 'fill', ratio: 'auto' }
+];
 
 async function verify() {
     // Detect TV environment immediately on every page load — before auth check,
@@ -55,6 +62,9 @@ async function verify() {
             } catch (e) {
                 console.error("Error loading settings:", e);
             }
+
+            // 1.7 Load local preferences (like aspect ratio)
+            loadLocalPreferences();
 
             // 2. Start the player engine (Note: initApp no longer calls loadPlaylists internally)
             await initApp();
@@ -149,6 +159,9 @@ async function initApp() {
     if (shaka.Player.isBrowserSupported()) {
         const video = document.getElementById('video');
         player = new shaka.Player(video);
+
+        // Apply saved aspect ratio immediately
+        applyAspectRatio();
 
         // Live-streaming optimized configuration — minimal buffer for fast channel switching
         player.configure({
@@ -677,6 +690,9 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
     lastPlayedUrl = url;
     lastPlayedKey = encodedKeyStr;
 
+    // Ensure persistent aspect ratio is applied to the video element
+    applyAspectRatio();
+
     if (epgUpdateInterval) clearInterval(epgUpdateInterval);
 
     for (const pl of allPlaylists) {
@@ -882,6 +898,57 @@ function toggleFullscreen() {
     } else {
         document.exitFullscreen();
     }
+}
+
+function cycleAspectRatio() {
+    aspectRatioIndex = (aspectRatioIndex + 1) % aspectRatios.length;
+    localStorage.setItem('preferredAspectRatioIndex', aspectRatioIndex);
+    applyAspectRatio();
+    showRatioIndicator(aspectRatios[aspectRatioIndex].label);
+}
+
+function applyAspectRatio() {
+    const ratio = aspectRatios[aspectRatioIndex];
+    const video = document.getElementById('video');
+    if (!video) return;
+    
+    // Reset any previous custom styles
+    video.style.width = '100%';
+    video.style.height = '100%';
+    video.style.maxWidth = '100%';
+    video.style.maxHeight = '100%';
+    video.style.margin = 'auto';
+    video.style.aspectRatio = ratio.ratio;
+    video.style.objectFit = ratio.fit;
+
+    if (ratio.label !== 'Source' && ratio.label !== 'Fill') {
+        // For forced ratios, we need to let aspect-ratio drive dimensions within the container
+        video.style.width = 'auto';
+        video.style.height = 'auto';
+    }
+}
+
+function loadLocalPreferences() {
+    const savedRatio = localStorage.getItem('preferredAspectRatioIndex');
+    if (savedRatio !== null) {
+        aspectRatioIndex = parseInt(savedRatio);
+    }
+}
+
+function showRatioIndicator(text) {
+    const indicator = document.getElementById('ratioIndicator');
+    if (!indicator) return;
+    
+    indicator.innerText = text;
+    indicator.classList.add('show');
+    
+    if (indicator.dataset.timeout) clearTimeout(parseInt(indicator.dataset.timeout));
+    
+    const timeout = setTimeout(() => {
+        indicator.classList.remove('show');
+    }, 2000);
+    
+    indicator.dataset.timeout = String(timeout);
 }
 
 let currentAudioTracks = [];
