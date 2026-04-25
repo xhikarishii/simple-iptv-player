@@ -1,0 +1,1406 @@
+:root {
+            --primary: #3b82f6;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --sidebar-width: clamp(300px, 25vw, 400px);
+            --header-height: 70px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            max-width: 100%;
+            -webkit-text-size-adjust: 100%;
+            position: relative;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .app-loader {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-dark);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.4s ease, visibility 0.4s;
+        }
+
+        .app-loader .spinner {
+            width: 3.5rem;
+            height: 3.5rem;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .app-loader p {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr var(--sidebar-width);
+            grid-template-rows: var(--header-height) 1fr;
+            height: 100vh;
+        }
+
+        header {
+            grid-column: 1 / -1;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000 !important;
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: -1px;
+        }
+
+        .player-area {
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            max-width: 100%;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .video-wrapper {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* TV Mode Layout */
+        body.tv-mode {
+            overflow: hidden !important;
+            cursor: none !important;
+        }
+
+        body.tv-mode .app-container {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+            height: 100vh;
+        }
+
+        body.tv-mode header,
+        body.tv-mode aside.sidebar {
+            display: none !important;
+        }
+
+        body.tv-mode .player-area {
+            padding: 0;
+        }
+
+        body.tv-mode .video-wrapper {
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        /* Hide scrollbars in TV Mode for a cleaner look */
+        body.tv-mode #epgOverlayContainer::-webkit-scrollbar,
+        body.tv-mode #channelOverlayContainer::-webkit-scrollbar,
+        body.tv-mode .program-timeline::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        /* Disable Shaka UI interaction in TV Mode */
+        body.tv-mode .shaka-controls-container,
+        body.tv-mode .shaka-text-container {
+            display: none !important;
+            pointer-events: none !important;
+        }
+
+        /* Scale down the Now Playing Overlay for TV Mode */
+        body.tv-mode .now-playing-overlay {
+            padding: 12px 18px;
+            max-width: 650px;
+            bottom: 25px;
+            gap: 12px;
+        }
+
+        body.tv-mode .now-playing-logo {
+            width: 40px;
+            height: 40px;
+        }
+
+        body.tv-mode #nowPlayingName {
+            font-size: 1rem;
+        }
+
+        body.tv-mode #nowPlayingProgram {
+            font-size: 0.85rem;
+            margin-top: 2px;
+        }
+
+        body.tv-mode #customPlayerControls button,
+        body.tv-mode #customPlayerControls select {
+            padding: 6px 10px !important;
+            font-size: 0.85rem !important;
+        }
+
+        /* Big Screen & 4K TV Scaling Improvements */
+        @media (min-width: 2000px) {
+            :root {
+                font-size: 20px;
+            }
+
+            :root {
+                --sidebar-width: 550px;
+                --header-height: 90px;
+            }
+
+            .app-loader .spinner {
+                width: 6rem;
+                height: 6rem;
+                border-width: 8px;
+            }
+
+            .app-loader p {
+                font-size: 2rem;
+            }
+
+            .now-playing-overlay {
+                gap: 30px;
+                padding: 40px;
+                max-width: 800px;
+                bottom: 100px;
+                left: 100px;
+            }
+
+            .now-playing-logo {
+                width: 120px;
+                height: 120px;
+                border-radius: 20px;
+            }
+
+            #nowPlayingName {
+                font-size: 2.5rem;
+            }
+
+            #nowPlayingProgram {
+                font-size: 1.5rem;
+            }
+
+            #nowPlayingProgram {
+                font-size: 1.8rem;
+                margin-top: 10px;
+            }
+
+            #nowPlayingCat {
+                font-size: 1.2rem;
+            }
+
+            .program-progress-container {
+                width: 600px;
+                margin: 20px 0;
+            }
+
+            .program-times {
+                font-size: 1.1rem;
+            }
+
+            .progress-bar-bg {
+                height: 8px;
+            }
+
+            .channel-logo {
+                width: 80px;
+                height: 80px;
+            }
+
+            .channel-name {
+                font-size: 1.2rem;
+            }
+
+            .channel-program {
+                font-size: 1rem;
+            }
+
+            .channel-info-epg {
+                width: 240px;
+                min-width: 240px;
+                padding: 25px;
+            }
+
+            .channel-logo-epg {
+                width: 80px;
+                height: 80px;
+            }
+
+            .channel-name-epg {
+                font-size: 1.2rem;
+            }
+
+            .program-card-epg {
+                min-width: 380px;
+                padding: 25px;
+            }
+
+            .program-title-epg {
+                font-size: 1.3rem;
+            }
+
+            .program-time-epg {
+                font-size: 1.1rem;
+            }
+
+            #epgModal .modal-content h2 {
+                font-size: 3.5rem !important;
+            }
+
+            #epgModal .close-btn {
+                font-size: 4.5rem !important;
+            }
+        }
+
+        @media (min-width: 3500px) {
+            :root {
+                font-size: 26px;
+            }
+
+            :root {
+                --sidebar-width: 800px;
+                --header-height: 120px;
+            }
+        }
+
+        /* TV Mode specific scaling for 10-foot UI */
+        body.tv-mode .now-playing-overlay {
+            gap: 20px;
+            max-width: min(90vw, 900px);
+            width: 100%;
+            padding: 25px 40px;
+            left: 0;
+            right: 0;
+            margin: 0 auto;
+        }
+
+        body.tv-mode .now-playing-label {
+            font-size: 1rem;
+            letter-spacing: 3px;
+        }
+
+        body.tv-mode .now-playing-logo {
+            width: 125px;
+            height: auto;
+            max-height: 80px;
+            border-radius: 0;
+            background: none;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        body.tv-mode #nowPlayingName {
+            font-size: 1.6rem;
+        }
+
+        body.tv-mode #nowPlayingProgram {
+            font-size: 1rem;
+        }
+
+        body.tv-mode #btnFullscreen {
+            display: none !important;
+        }
+
+        body.tv-mode .program-progress-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 25px 0;
+        }
+
+        body.tv-mode .program-times {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+        }
+
+        body.tv-mode .progress-bar-bg {
+            height: 12px;
+            border-radius: 6px;
+        }
+
+        body.tv-mode #nowPlayingCat {
+            font-size: 1.1rem;
+        }
+
+        body.tv-mode .channel-info-epg {
+            width: 220px;
+            min-width: 220px;
+        }
+
+        body.tv-mode .channel-logo-epg {
+            width: 80px;
+            height: 80px;
+        }
+
+        body.tv-mode .channel-name-epg {
+            font-size: 1.2rem;
+        }
+
+        body.tv-mode .program-card-epg {
+            min-width: 350px;
+            padding: 25px;
+        }
+
+        body.tv-mode .program-title-epg {
+            font-size: 1.3rem;
+        }
+
+        body.tv-mode .program-time-epg {
+            font-size: 1rem;
+        }
+
+        .menu-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998 !important;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .menu-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .mobile-sliding-menu {
+            position: fixed;
+            top: 0;
+            right: -280px;
+            width: 80vw;
+            /* Responsive width */
+            max-width: 280px;
+            /* Maximum width */
+            height: 100vh;
+            background: var(--card-bg);
+            z-index: 9999 !important;
+            padding: 30px 25px;
+            box-sizing: border-box;
+            /* box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); */
+            display: flex;
+            flex-direction: column;
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-sliding-menu.active {
+            right: 0;
+        }
+
+        .menu-close-btn {
+            align-self: flex-end;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.8rem;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
+        .header-toggle-btn {
+            display: none;
+            /* Hidden by default on desktop */
+        }
+
+        .mobile-only-btn {
+            display: none !important;
+        }
+
+        .now-playing-overlay.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .now-playing-overlay {
+            position: absolute;
+            bottom: 40px;
+            left: 50px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 18px 25px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 55;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+            width: 94%;
+            left: 3%;
+            max-width: 600px;
+            min-width: 500px;
+            box-sizing: border-box;
+        }
+
+
+
+        .now-playing-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .now-playing-overlay.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        #customPlayerControls button.tv-focused {
+            outline: 2px solid var(--primary) !important;
+            background: rgba(59, 130, 246, 0.35) !important;
+            transform: scale(1.15);
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .now-playing-overlay.show-temporary {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+            pointer-events: auto !important;
+        }
+
+        .now-playing-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: 1.5px;
+            display: block;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        #nowPlayingName {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #nowPlayingCat {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .resolution-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 2px 7px;
+            border-radius: 5px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-left: 8px;
+            text-transform: uppercase;
+        }
+
+        .resolution-badge.res-sd   { background: rgba(100, 116, 139, 0.4); color: #94a3b8; border: 1px solid rgba(100,116,139,0.4); }
+        .resolution-badge.res-hd   { background: rgba(59, 130, 246, 0.25); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+        .resolution-badge.res-fhd  { background: rgba(139, 92, 246, 0.25); color: #a78bfa; border: 1px solid rgba(139,92,246,0.4); }
+        .resolution-badge.res-qhd  { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16,185,129,0.4); }
+        .resolution-badge.res-4k   { background: rgba(245, 158, 11, 0.25); color: #fbbf24; border: 1px solid rgba(245,158,11,0.5); }
+        .resolution-badge.res-8k   { background: rgba(239, 68, 68, 0.25);  color: #f87171; border: 1px solid rgba(239,68,68,0.5);  }
+
+        #nowPlayingProgram {
+            font-size: 0.9rem;
+            color: var(--text-main);
+            margin-top: 5px;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .program-progress-container {
+            margin: 10px 0;
+            width: 320px;
+        }
+
+        .program-times {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .progress-bar-bg {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .ratio-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.72);
+            color: white;
+            padding: 6px 18px;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: 800;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 100;
+            pointer-events: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .ratio-indicator.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .video-wrapper div[data-shaka-player-container] {
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        video#video {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+
+        .sidebar {
+            background: var(--card-bg);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            max-width: 100vw;
+        }
+
+        .sidebar-controls {
+            padding: 20px;
+            background: rgba(30, 41, 59, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .filter-select {
+            width: 100%;
+            background: var(--bg-dark);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        #channelSearch {
+            padding-right: 40px;
+            margin-bottom: 0;
+        }
+
+        .clear-search-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: none;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.2s;
+            z-index: 10;
+        }
+
+        .clear-search-btn:hover {
+            color: white;
+        }
+
+        #playlist {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px 20px;
+            list-style: none;
+            margin: 0;
+        }
+
+        #playlist::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #playlist::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .channel-card {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .channel-card:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .channel-card.focused {
+            background: var(--primary) !important;
+            border-color: white !important;
+        }
+
+        .channel-logo {
+            width: 54px;
+            height: 54px;
+            border-radius: 8px;
+            background: var(--bg-dark);
+            object-fit: contain;
+            margin-right: 15px;
+            padding: 5px;
+        }
+
+        .channel-meta {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .channel-name {
+            display: block;
+            font-weight: 600;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* EPG Overlay Timeline Styles */
+        .epg-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+            padding-bottom: 20px;
+        }
+
+        .channel-row-epg {
+            display: flex;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            min-height: 110px;
+            width: max-content;
+            min-width: 100%;
+            align-items: center;
+        }
+
+        .channel-info-epg {
+            width: 160px;
+            min-width: 160px;
+            padding: 15px;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+            position: sticky;
+            left: 0;
+            z-index: 10;
+        }
+
+        .channel-logo-epg {
+            width: 44px;
+            height: 44px;
+            object-fit: contain;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            background: #000;
+        }
+
+        .channel-name-epg {
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            color: var(--text-main);
+        }
+
+        .program-timeline {
+            display: flex;
+            overflow-x: visible;
+            flex-grow: 1;
+            padding: 15px;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
+
+        .program-timeline::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .program-timeline::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .program-card-epg {
+            min-width: 250px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            flex-shrink: 0;
+            text-align: left;
+        }
+
+        .program-card-epg:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .program-card-epg.active {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .program-title-epg {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-main);
+        }
+
+        .program-time-epg {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .channel-program {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+            min-width: 0;
+        }
+
+        .channel-cat {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-top: 4px;
+            text-align: left;
+        }
+
+        /* EPG Fullscreen Overlay Overrides */
+        #epgModal {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+        }
+
+        #channelModal {
+            background: transparent;
+            backdrop-filter: none;
+        }
+
+        #epgModal .modal-content {
+            max-width: 100% !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 40px 60px !important;
+            box-shadow: none !important;
+            width: 95% !important;
+            max-height: 90vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-width: 100vw;
+        }
+
+        #channelModal {
+            align-items: flex-start;
+            justify-content: flex-end;
+            padding: 0;
+        }
+
+        #channelModal .modal-content {
+            width: 360px !important;
+            max-width: 100% !important;
+            height: 100vh !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            background: rgba(15, 23, 42, 0.95) !important;
+            padding: 0 !important;
+            box-shadow: -10px 0 50px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        #channelModal .channel-card.focused {
+            background: var(--primary) !important;
+            border-color: transparent !important;
+            transform: scale(1.03);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+            outline: none;
+            z-index: 10;
+        }
+
+        /* TV mode: flat list cards with separators, fully left-aligned */
+        body.tv-mode #channelModal .channel-card {
+            border-radius: 0;
+            margin-bottom: 0;
+            border: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+            padding: 10px 14px;
+            background: transparent;
+        }
+        body.tv-mode #channelModal ul#channelOverlayList > li:last-child {
+            border-bottom: none;
+        }
+        body.tv-mode #channelModal .channel-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        body.tv-mode #channelModal .channel-name,
+        body.tv-mode #channelModal .channel-program,
+        body.tv-mode #channelModal .channel-cat {
+            text-align: left;
+            display: block;
+        }
+        /* Currently-playing card: blue left accent strip */
+        body.tv-mode #channelModal .channel-card.playing {
+            background: rgba(59, 130, 246, 0.12) !important;
+            border-bottom-color: rgba(59, 130, 246, 0.2) !important;
+            box-shadow: inset 3px 0 0 var(--primary);
+        }
+
+        /* EPG live icon — adapts colour per card state */
+        body.tv-mode #channelModal .ch-epg-icon {
+            font-size: 0.65rem;
+            margin-right: 4px;
+            color: var(--primary);        /* default: blue on dark bg */
+            vertical-align: middle;
+        }
+        body.tv-mode #channelModal .channel-card.playing .ch-epg-icon {
+            color: #93c5fd;              /* playing: light blue — readable on tinted bg */
+        }
+        body.tv-mode #channelModal .channel-card.focused .ch-epg-icon {
+            color: rgba(255,255,255,0.85); /* focused: near-white — readable on solid blue bg */
+        }
+
+        /* Arrow nav buttons */
+        .ch-overlay-arrow {
+            flex-shrink: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 48px;
+            color: rgba(255,255,255,0.35);
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: color 0.2s;
+            user-select: none;
+        }
+        .ch-overlay-arrow:hover { color: rgba(255,255,255,0.85); }
+        .ch-overlay-arrow i { pointer-events: none; }
+
+        /* Fade masks top & bottom */
+        #channelOverlayWrapper {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* vertically centre the 5 items */
+            overflow: hidden;
+        }
+        #channelOverlayWrapper::before,
+        #channelOverlayWrapper::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            height: 60px;
+            pointer-events: none;
+            z-index: 5;
+        }
+        #channelOverlayWrapper::before {
+            top: 0;
+            background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%);
+        }
+        #channelOverlayWrapper::after {
+            bottom: 0;
+            background: linear-gradient(to top, rgba(15,23,42,0.95) 0%, transparent 100%);
+        }
+        /* Fix text colour conflicts inside the focused (highlighted) channel card */
+        #channelModal .channel-card.focused .channel-name,
+        #channelModal .channel-card.focused .channel-program,
+        #channelModal .channel-card.focused .channel-cat {
+            color: #ffffff !important;
+        }
+
+        /* Playing card: keep the blue accent on program text but ensure category is readable */
+        #channelModal .channel-card.playing .channel-program {
+            color: #93c5fd; /* lighter blue, readable on dark background */
+        }
+        #channelModal .channel-card.playing .channel-cat {
+            color: rgba(255,255,255,0.55);
+        }
+
+
+        #epgModal .program-card-epg.focused {
+            background: var(--primary) !important;
+            border-color: white !important;
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+            outline: none;
+            z-index: 10;
+        }
+
+        #epgOverlayContainer::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #epgOverlayContainer::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .error-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 50;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .btn-retry {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 1100px) {
+            body {
+                overflow-y: auto;
+            }
+
+            .app-container {
+                grid-template-columns: 1fr;
+                height: auto;
+                grid-template-rows: var(--header-height) auto;
+            }
+
+            header {
+                position: sticky;
+            }
+
+            .player-area {
+                padding: 0;
+                height: auto;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .video-wrapper {
+                border-radius: 0;
+                height: auto;
+                aspect-ratio: 16 / 9;
+                width: 100%;
+            }
+
+            @supports not (aspect-ratio: 16 / 9) {
+                .video-wrapper {
+                    height: 0;
+                    padding-bottom: 56.25%;
+                }
+
+                .video-wrapper>div[data-shaka-player-container] {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                }
+            }
+
+            .now-playing-overlay {
+                position: relative;
+                opacity: 1;
+                transform: none;
+                background: var(--card-bg);
+                border: none;
+                border-radius: 0;
+                width: 100%;
+                box-sizing: border-box;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 15px 20px;
+                pointer-events: auto;
+                bottom: 0;
+                left: 0;
+                max-width: none;
+            }
+
+            .program-progress-container {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .mobile-only-btn {
+                display: inline-flex !important;
+                background: var(--primary);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 0.85rem;
+                margin: 0;
+                margin-left: auto;
+                flex-shrink: 0;
+            }
+
+            /* Header specific mobile styles */
+            #headerUserActions {
+                display: none !important;
+            }
+
+            #mobileTvModeBtn {
+                display: none !important;
+            }
+
+            .header-toggle-btn {
+                display: block;
+                margin-left: auto;
+            }
+
+            header {
+                position: relative;
+                /* For absolute positioning of the mobile user menu */
+            }
+
+            .header-toggle-btn {
+                display: block;
+                /* Show on mobile */
+                background: transparent;
+                color: var(--text-main);
+                border: none;
+                padding: 5px 10px;
+                font-size: 1.5rem;
+                cursor: pointer;
+                margin-left: auto;
+                /* Push to the right */
+            }
+
+            .logo {
+                font-size: 1.2rem;
+            }
+
+            .sidebar {
+                display: flex;
+                height: auto;
+                max-height: 0;
+                opacity: 0;
+                overflow: hidden;
+                transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+                border-left: none;
+                border-top: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            .sidebar.active {
+                max-height: 80vh;
+                opacity: 1;
+            }
+
+            #currentUserDisplay {
+                display: none;
+            }
+
+            /* EPG Mobile Scaling Improvements */
+            #epgModal .modal-content {
+                padding: 10px 15px !important;
+            }
+
+            #epgModal .modal-content>div:first-child {
+                padding: 10px 0 !important;
+                margin-bottom: 15px !important;
+            }
+
+            #epgModal .modal-content h2 {
+                font-size: 1.4rem !important;
+            }
+
+            .app-loader .spinner {
+                width: 3rem;
+                height: 3rem;
+            }
+
+            .app-loader p {
+                font-size: 0.95rem;
+            }
+
+            #epgModal .close-btn {
+                font-size: 2rem !important;
+            }
+
+            .channel-row-epg {
+                min-height: 80px;
+            }
+
+            .channel-info-epg {
+                width: 90px !important;
+                min-width: 90px !important;
+                padding: 8px !important;
+            }
+
+            .channel-logo-epg {
+                width: 32px;
+                height: 32px;
+                margin-bottom: 4px;
+            }
+
+            .channel-name-epg {
+                font-size: 0.7rem;
+            }
+
+            .program-card-epg {
+                min-width: 160px !important;
+                padding: 10px !important;
+            }
+
+            .program-title-epg {
+                font-size: 0.8rem !important;
+            }
+
+            .program-time-epg {
+                font-size: 0.65rem !important;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            width: 100%;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: var(--bg-dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        /* Focus Outlines for TV Mode Custom Controls */
+        #customPlayerControls button:focus,
+        #customPlayerControls select:focus {
+            outline: 3px solid var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+            background: rgba(59, 130, 246, 0.3) !important;
+        }
+
+        /* Now-Playing control buttons — uniform square icon buttons */
+        .ctrl-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.05rem;
+            transition: background 0.18s;
+            flex-shrink: 0;
+        }
+        .ctrl-btn:hover { background: rgba(255, 255, 255, 0.18); }
+
+        /* Label buttons (audio/subtitle) — icon + text, auto width */
+        .ctrl-btn-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 40px;
+            padding: 0 14px;
+            gap: 7px;
+            background: rgba(59, 130, 246, 0.2);
+            color: white;
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.18s;
+            flex-shrink: 0;
+        }
+        .ctrl-btn-label:hover { background: rgba(59, 130, 246, 0.35); }

@@ -75,11 +75,17 @@ async function main() {
     console.log('\nBuilding vendor assets...\n');
 
     // ── Shaka Player ─────────────────────────────────────────────────────────
-    // Use the closure-compiler output — already more aggressively optimised
-    // than Terser could achieve on this codebase.
+    // Use the compiled output — already aggressively optimised.
     copy(
-        path.join(NM, 'shaka-player/dist/shaka-player.ui.min.js'),
+        path.join(NM, 'shaka-player/dist/shaka-player.ui.js'),
         path.join(VENDOR, 'shaka-player.ui.js')
+    );
+
+    // ── mux.js ───────────────────────────────────────────────────────────────
+    // Required by Shaka for TS stream support
+    copy(
+        path.join(NM, 'mux.js/dist/mux.min.js'),
+        path.join(VENDOR, 'mux.min.js')
     );
     minifyCss(
         path.join(NM, 'shaka-player/dist/controls.css'),

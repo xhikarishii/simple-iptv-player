@@ -4,7 +4,7 @@
   "main": "server.js",
   "scripts": {
     "copy-vendor": "node scripts/copy-vendor.js",
-    "build": "node scripts/copy-vendor.js && terser public/app.js -o public/app.js -c -m && terser public/admin.js -o public/admin.js -c -m",
+    "build": "node scripts/copy-vendor.js && terser public/app.js -o public/app.js -c -m && terser public/admin.js -o public/admin.js -c -m && cleancss -o public/app.css public/app.css && cleancss -o public/admin.css public/admin.css",
     "start": "node server.js"
   },
   "dependencies": {
@@ -16,7 +16,9 @@
   },
   "devDependencies": {
     "@fontsource/inter": "^5.0.0",
+    "clean-css-cli": "^5.6.3",
     "crypto-js": "^4.2.0",
+    "mux.js": "^7.0.2",
     "pako": "^2.1.0",
     "shaka-player": "^4.3.5",
     "terser": "^5.30.0"
