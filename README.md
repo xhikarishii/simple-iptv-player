@@ -1,103 +1,133 @@
-# 📺 Streamline IPTV Web Player
+# 📺 Simple IPTV Player
 
-A containerized IPTV web application designed for high-performance streaming, robust security, and multi-user management. This stack is optimized to bypass common browser security restrictions while maintaining a sleek, modern UI.
-
----
-
-## 🚀 Key Features
-
-### **Playback & Delivery**
-* **Shaka Player Integration:** High-fidelity playback for HLS and DASH streams with full **ClearKey DRM** support.
-* **Electronic Program Guide (EPG):** Supports multiple XML and XML.gz EPG sources. Features client-side decompression using `pako` and **sticky channel headers** for easy navigation.
-* **Insecure Stream Proxy:** Custom Nginx reverse proxy allows `http://` streams to play on `https://` domains without "Mixed Content" blocks.
-* **User-Specific Session Resume:** Remembers and autoplays the last channel watched by each specific user.
-* **Smart Autoplay:** Automatically handles aggressive browser autoplay policies by starting muted and providing a "Click to Unmute" hint.
-
-### **User Experience & Responsiveness**
-* **Fluid Cross-Platform Layout:** Uses `clamp()` and relative units to scale seamlessly from 360px mobile devices to 4K TV displays.
-* **Real-time "Now Playing":** Overlay displays channel logo, current program title, start/end times, and a live progress bar.
-* **Live Channel Metadata:** Sidebar channel list displays currently airing programs for quick browsing.
-* **Advanced Search:** Instant channel search with a dedicated "clear" action, combined with category filtering.
-* **Full-screen App Loader:** Prevents interaction during the initialization of the player engine and EPG data parsing.
-
-### **TV Mode**
-* **Auto-Detection:** Automatically detects Smart TVs, Android TV, Tizen, WebOS, and FireTV environments to optimize the UI.
-* **D-Pad Navigation:** Full support for remote control navigation (Arrow keys/OK/Back) across the EPG grid and channel overlays.
-* **Smart Interaction:** Specialized gesture/click logic (Single-click for channel list, Double-click for EPG) designed for simplified remote inputs.
-* **High-Visibility Scaling:** Adaptive CSS scaling (`tv-mode`) ensures text and logos are legible from a distance on large 4K displays.
-* **UX Enhancements:** Sticky EPG headers and auto-unmute on interaction provide a seamless "lean-back" experience.
-* **Shaka UI Optimization:** Disables standard mouse-centric player controls in TV mode to prevent UI clutter.
-
-### **Security & Anti-Tamper**
-* **Playlist Encryption:** Playlist data is encrypted on the server; clients only get the keys after successful authentication.
-* **Anti-Debugging Trap:** Synchronous "Gatekeeper" logic detects if Developer Tools are open and nukes the session memory to protect stream URLs.
-* **Terser Mangling:** Frontend JavaScript is minified and variable-mangled during the Docker build process to hinder reverse engineering.
-* **JWT Authentication:** Secure token-based sessions with Role-Based Access Control (RBAC).
-
-### **Management & UI**
-* **Mobile Ready** Fully responsive UI featuring a side-sliding navigation drawer and accordion-style channel lists.
-* **Shared Playlists:** Admins can assign playlists to primary owners or share them across multiple secondary users.
-* **Integrated Code Editor:** Built-in **Ace Editor** with JSON syntax highlighting for professional-grade playlist management.
-* **M3U to JSON Converter:** Powerful admin tool to import raw M3U content. Automatically extracts channel names, logos, categories, EPG IDs (`tvg-id`), and complex ClearKey license strings.
-* **JSON Validation:** Built-in validation tools to ensure playlist data is correctly formatted before saving.
+A self-hosted IPTV web player built for people who actually want to watch TV, not mess with configs all day. Runs in Docker, plays your streams, and stays out of the way.
 
 ---
 
-## 🏗 Stack Architecture
+## What it does
 
-* **Frontend:** Vanilla JS, Shaka Player, Ace Editor, CryptoJS.
-* **Backend:** Node.js (Express), SQLite3 (Database).
-* **Proxy:** Nginx (Alpine-based) with custom CORS & Protocol headers.
-* **Deployment:** Docker & Docker Compose.
+- Plays HLS and DASH streams using [Shaka Player](https://github.com/shaka-project/shaka-player)
+- Supports ClearKey DRM for encrypted streams
+- Built-in EPG (Program Guide) — supports multiple XML/XML.gz sources
+- Routes `http://` streams through an internal Nginx proxy so they work on HTTPS without "Mixed Content" errors
+- Remembers which channel each user was watching and picks up where they left off
+- Works on mobile, desktop, and Smart TVs
 
 ---
 
-## 🛠 Deployment Instructions
+## Features
 
-### 1. Prerequisites
-Ensure you have **Docker** and **Docker Compose** installed on your server.
+**Player**
+- Custom player controls (no default Shaka UI) — play/pause, mute, audio & subtitle track cycling, EPG button
+- Audio and subtitle tracks cycle through with icon buttons (🎧 / 💬) — only shows when multiple tracks are available
+- Now Playing overlay shows channel logo, current program, times, and a live progress bar
+- Stream retry logic — tries up to 5 times before showing an error, with a "Connecting…" message in between
+- Tuned buffer settings for live IPTV — starts playback faster, recovers from stalls quickly
 
-### 2. Environment Setup
-Create a `.env` file in the project root:
+**TV Mode**
+- Auto-detects Smart TVs, Android TV, Tizen, WebOS, FireTV, and similar set-top boxes
+- Channel list becomes a slim sidebar (not a full-screen overlay) — video stays visible behind it
+- Full D-Pad navigation with ⬆️ ⬇️ for channels, ⬅️ ➡️ for player controls and EPG programs, ↩️ Enter to confirm, ⎋ Escape to go back
+- Channel sidebar auto-closes after 5 seconds of no input
+- Now Playing overlay is centered, compact, and sized for a 10-foot display
+- No mouse or touch interaction — remote-only controls
+
+**EPG / Program Guide**
+- Open with the 📅 button in the player controls
+- D-Pad navigates the grid: Up/Down for channel rows, Left/Right for program cards, Enter to play
+
+**Security**
+- JWT auth with role-based access (admin / user)
+- Playlist data is encrypted — clients only get decryption keys after login
+- Anti-debugging protection: opening DevTools triggers a security lockout (can be disabled for local dev)
+- JS is minified and mangled on Docker build
+
+**Admin Panel**
+- Manage users, playlists, and EPG sources
+- Built-in M3U importer — parses channel names, logos, categories, EPG IDs, and DRM keys automatically
+- Ace Editor with JSON syntax highlighting for manual playlist editing
+- Shared playlists — assign to one user or share across multiple
+
+---
+
+## Stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | Vanilla JS, Shaka Player, Ace Editor, CryptoJS |
+| Backend | Node.js + Express, SQLite |
+| Proxy | Nginx (Alpine) |
+| Deployment | Docker + Docker Compose |
+
+---
+
+## Setup
+
+### Requirements
+- Docker and Docker Compose
+
+### 1. Create a `.env` file
 
 ```env
 PORT=3000
 JWT_SECRET=your_super_secret_jwt_token
 SECRET_KEY=your_aes_encryption_key_string
 ```
-### 3. Deploy the Stack
-Build and start the containers:
 
-```
+### 2. Start it up
+
+```bash
 docker-compose up -d --build
 ```
 
-The application will be accessible at http://your-server-ip:8587.
+Then open `http://your-server-ip:8587`
 
-### 4. Initial Credentials
+### 3. Default login
 
-Username: `admin`
-Password: `admin123`
+```
+Username: admin
+Password: admin123
+```
 
-Note: Change the admin password immediately in the User Management section of the Admin Panel.
+> **Change the admin password immediately** after first login via the Admin Panel → User Management.
 
 ---
 
-## 📁 Directory Structure
+## Project Structure
 
 ```
-├── data/               # Persistent SQLite database
+├── data/               # SQLite database (persisted)
 ├── public/
-│   ├── index.html      # Main Player UI
-│   ├── admin.html      # Admin Dashboard
-│   ├── app.js          # Player Logic (Mangled on build)
-│   └── admin.js        # Admin Logic (Mangled on build)
-├── server.js           # Express API & Backend
-├── nginx.conf          # Reverse Proxy Configuration
-├── Dockerfile          # Multi-stage build process
+│   ├── index.html      # Player UI
+│   ├── admin.html      # Admin dashboard
+│   ├── app.js          # Player logic
+│   └── admin.js        # Admin logic
+├── server.js           # Express API
+├── nginx.conf          # Reverse proxy config
+├── Dockerfile          # Multi-stage build
 └── docker-compose.yml  # Service orchestration
 ```
 
-## ⚠️ Important Note
+---
 
-**Anti-Debugging** is active. If you open the browser console (F12) while on the Player or Admin pages, the "Security Violation" screen will trigger and data fetching will be blocked. To debug, you must temporarily comment out the checkDevTools calls in the .js files and rebuild.
+## Recent Changes (v1.0.4)
+
+A big round of TV mode improvements landed recently:
+
+- Channel list is now a sidebar instead of a full-screen overlay
+- Full D-Pad keyboard navigation for TV mode (Up/Down = channels, Left/Right = controls/EPG, Enter = confirm)
+- Custom player controls replaced the Shaka UI — audio/subtitle track cycling with icon buttons
+- EPG is now navigable with the D-Pad
+- Stream loading is faster — buffer tuned for live IPTV, retries up to 5x before showing an error
+- "Remember me" option on the login page
+- HTTP-only proxy — HTTPS streams skip the proxy entirely
+- Improved Smart TV detection for devices with non-standard user agents
+- Various fixes around stale error messages when switching channels quickly
+
+See [`RELEASE_NOTES.md`](./RELEASE_NOTES.md) for the full breakdown.
+
+---
+
+## Dev Note
+
+Anti-debugging is on by default. If DevTools makes the player lock up on you, comment out the `checkDevTools()` calls in the `.js` files and rebuild.
