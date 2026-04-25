@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "build": "terser public/app.js -o public/app.js -c -m && terser public/admin.js -o public/admin.js -c -m",
+    "copy-vendor": "node scripts/copy-vendor.js",
+    "build": "node scripts/copy-vendor.js && terser public/app.js -o public/app.js -c -m && terser public/admin.js -o public/admin.js -c -m",
     "start": "node server.js"
   },
   "dependencies": {
@@ -14,6 +15,10 @@
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.0.0",
+    "crypto-js": "^4.2.0",
+    "pako": "^2.1.0",
+    "shaka-player": "^4.3.5",
     "terser": "^5.30.0"
   }
-}
+}

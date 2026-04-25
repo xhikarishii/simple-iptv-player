@@ -8,12 +8,17 @@
         content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; media-src * blob: data:; connect-src *;">
     <title>Streamline IPTV</title>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mux.js/7.0.2/mux.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- JS libraries — served locally from npm packages via /vendor/ -->
+    <script src="/vendor/shaka-player.ui.js"></script>
+    <script src="/vendor/crypto-js.min.js"></script>
+    <script src="/vendor/pako.min.js"></script>
+    <!-- Shaka Player UI CSS -->
+    <link rel="stylesheet" href="/vendor/shaka-controls.css">
+    <!-- Inter font — self-hosted via @fontsource/inter npm package -->
+    <link rel="stylesheet" href="/vendor/fonts/inter/400.css">
+    <link rel="stylesheet" href="/vendor/fonts/inter/600.css">
+    <link rel="stylesheet" href="/vendor/fonts/inter/800.css">
+    <!-- Flaticon Uicons — CDN only (no npm distribution available) -->
     <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-regular-rounded/css/uicons-regular-rounded.css">
     <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css">
 

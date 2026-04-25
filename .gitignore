@@ -1,2 +1,4 @@
 /data/iptv.db
 .env
+node_modules/
+public/vendor/
