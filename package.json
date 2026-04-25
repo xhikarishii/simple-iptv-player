@@ -4,7 +4,7 @@
   "main": "server.js",
   "scripts": {
     "copy-vendor": "node scripts/copy-vendor.js",
-    "build": "node scripts/copy-vendor.js && terser public/app.js -o public/app.js -c -m && terser public/admin.js -o public/admin.js -c -m && cleancss -o public/app.css public/app.css && cleancss -o public/admin.css public/admin.css",
+    "build": "node scripts/copy-vendor.js && terser public/app.js -o public/app.js -c -m && terser public/admin.js -o public/admin.js -c -m && cleancss -o public/app.css public/app.css && cleancss -o public/admin.css public/admin.css && node scripts/bundle.js",
     "start": "node server.js"
   },
   "dependencies": {
