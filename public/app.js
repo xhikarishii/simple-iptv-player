@@ -14,8 +14,13 @@ let channelOverlayIndex = 0;
 let epgChannelIndex = 0; // Vertical row selection
 let epgProgramIndex = 0; // Horizontal card selection
 let playerClickTimer = null;
+let globalSettings = {};
 
 async function verify() {
+    // Detect TV environment immediately on every page load — before auth check,
+    // so TV mode styles apply on first visit (login screen) too, not just after refresh.
+    detectTvMode();
+
     const token = sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken');
     if (!token) return showLogin();
 
@@ -23,9 +28,6 @@ async function verify() {
         const res = await fetch('/api/auth/check', { headers: { 'Authorization': `Bearer ${token}` } });
         if (res.ok) {
             const data = await res.json();
-
-            // Detect TV environment early to optimize boot and security checks
-            detectTvMode();
 
             toggleAppLoader(true);
 
@@ -43,6 +45,16 @@ async function verify() {
 
             document.getElementById('loginModal').style.display = 'none';
             document.getElementById('playerUI').style.display = 'grid';
+
+            // 1.5 Fetch global settings
+            try {
+                const settingsRes = await fetch('/api/settings', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                globalSettings = await settingsRes.json();
+            } catch (e) {
+                console.error("Error loading settings:", e);
+            }
 
             // 2. Start the player engine (Note: initApp no longer calls loadPlaylists internally)
             await initApp();
@@ -187,8 +199,15 @@ async function initApp() {
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             const url = request.uris[0];
 
-            // 1. External URLs (The Mixed Content Fixer)
-            if (url.startsWith('http://') && !url.includes(window.location.host)) {
+            // 1. External URLs (The Mixed Content Fixer & UA Spoofing)
+            const isExternal = (url.startsWith('http://') || url.startsWith('https://')) && !url.includes(window.location.host);
+            
+            // We MUST use the proxy if:
+            // a) It's HTTP (to avoid Mixed Content blocks on HTTPS sites)
+            // b) We have a custom User-Agent to spoof (browsers won't let us spoof UA directly on cross-origin requests)
+            const shouldProxy = url.startsWith('http://') || (isExternal && globalSettings.userAgent);
+
+            if (shouldProxy && isExternal) {
                 // Save the upstream destination to fix broken relative paths later
                 try {
                     const urlObj = new URL(url);
@@ -196,8 +215,15 @@ async function initApp() {
                     currentUpstreamHost = urlObj.host;
                 } catch (e) { }
 
-                // Force the insecure request through our secure Nginx proxy
-                request.uris[0] = window.location.origin + '/proxy/' + url;
+                // Construct the proxied URL
+                let proxiedUrl = window.location.origin + '/proxy/' + url;
+                
+                // Append the User-Agent as a query parameter for the Nginx proxy to consume
+                if (globalSettings.userAgent) {
+                    proxiedUrl += (proxiedUrl.includes('?') ? '&' : '?') + 'ua=' + encodeURIComponent(globalSettings.userAgent);
+                }
+                
+                request.uris[0] = proxiedUrl;
             }
 
             // 2. Root-Relative Path Fixer
@@ -206,7 +232,12 @@ async function initApp() {
                 if (currentUpstreamHost) {
                     const brokenPath = url.replace(window.location.origin, '');
                     // Reconstruct the proper proxy URL using the saved upstream host
-                    request.uris[0] = window.location.origin + '/proxy/' + currentUpstreamProtocol + '://' + currentUpstreamHost + brokenPath;
+                    let proxiedUrl = window.location.origin + '/proxy/' + currentUpstreamProtocol + '://' + currentUpstreamHost + brokenPath;
+                    
+                    if (globalSettings.userAgent) {
+                        proxiedUrl += (proxiedUrl.includes('?') ? '&' : '?') + 'ua=' + encodeURIComponent(globalSettings.userAgent);
+                    }
+                    request.uris[0] = proxiedUrl;
                 }
             }
         });
@@ -386,9 +417,15 @@ async function loadAllEpgData(playlists) {
             // Always proxy EPG requests — external EPG servers don't send CORS headers,
             // so both http:// and https:// URLs will fail without the proxy.
             const isExternal = epgUrl.startsWith('http://') || epgUrl.startsWith('https://');
-            const proxiedEpgUrl = isExternal
+            let proxiedEpgUrl = isExternal
                 ? window.location.origin + '/proxy/' + epgUrl
                 : epgUrl;
+            
+            // Append User-Agent if proxied
+            if (isExternal && globalSettings.userAgent) {
+                proxiedEpgUrl += (proxiedEpgUrl.includes('?') ? '&' : '?') + 'ua=' + encodeURIComponent(globalSettings.userAgent);
+            }
+
             const res = await fetch(proxiedEpgUrl);
             if (!res.ok) throw new Error(`Failed to fetch EPG from ${epgUrl}`);
 

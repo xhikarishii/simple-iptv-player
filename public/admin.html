@@ -391,6 +391,23 @@
     <main class="admin-container">
 
         <div class="card">
+            <h3>⚙️ Global Settings</h3>
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Player User-Agent Spoofing</label>
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: -5px; margin-bottom: 15px;">Changes the identity of the player when connecting to IPTV servers. Useful for bypassing strict server restrictions.</p>
+            <select id="settingUserAgent" onchange="handleUADropdownChange()">
+                <option value="AppleCoreMedia/1.0.0.19K362 (Apple TV; U; CPU OS 15_4 like Mac OS X; en_us)">Apple TV (Highly Compatible)</option>
+                <option value="Mozilla/5.0 (Linux; Android 11; Sony Bravia 4K VH2 Build/RP1A.200720.011) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36">Android TV (Smart TV Spoof)</option>
+                <option value="VLC/3.0.18 LibVLC/3.0.18">VLC Player (Standard)</option>
+                <option value="custom">Custom User-Agent...</option>
+            </select>
+            <div id="customUAContainer" style="display: none;">
+                <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Custom User-Agent String</label>
+                <input type="text" id="customUserAgent" placeholder="e.g. Mozilla/5.0...">
+            </div>
+            <button onclick="saveSettings()" style="background: var(--success); margin-top: 10px;">Save Settings</button>
+        </div>
+
+        <div class="card">
             <h3>👥 User Management</h3>
             <ul id="userList"></ul>
 

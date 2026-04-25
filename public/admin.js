@@ -81,6 +81,7 @@ function decryptPayload(encryptedPayload) {
 async function loadData() {
     await loadUsers();
     await loadPlaylists();
+    await loadSettings();
 }
 
 // --- USER MANAGEMENT ---
@@ -436,6 +437,61 @@ function toggleAdminMenu() {
         const isActive = menu.classList.toggle('active');
         if (backdrop) backdrop.classList.toggle('active');
         document.body.style.overflow = isActive ? 'hidden' : '';
+    }
+}
+
+// --- SETTINGS MANAGEMENT ---
+async function loadSettings() {
+    const res = await fetch('/api/settings', { headers: getAuthHeaders() });
+    const settings = await res.json();
+    
+    const uaSelect = document.getElementById('settingUserAgent');
+    const customUA = document.getElementById('customUserAgent');
+    
+    if (settings.userAgent) {
+        // Check if the current UA is one of the predefined ones
+        let found = false;
+        Array.from(uaSelect.options).forEach(opt => {
+            if (opt.value === settings.userAgent) {
+                uaSelect.value = opt.value;
+                found = true;
+            }
+        });
+        
+        if (!found) {
+            uaSelect.value = 'custom';
+            customUA.value = settings.userAgent;
+            document.getElementById('customUAContainer').style.display = 'block';
+        } else {
+            document.getElementById('customUAContainer').style.display = 'none';
+        }
+    }
+}
+
+function handleUADropdownChange() {
+    const uaSelect = document.getElementById('settingUserAgent');
+    const customContainer = document.getElementById('customUAContainer');
+    customContainer.style.display = uaSelect.value === 'custom' ? 'block' : 'none';
+}
+
+async function saveSettings() {
+    const uaSelect = document.getElementById('settingUserAgent');
+    const customUA = document.getElementById('customUserAgent').value;
+    
+    const userAgent = uaSelect.value === 'custom' ? customUA : uaSelect.value;
+    
+    if (!userAgent) return alert('User-Agent cannot be empty');
+
+    const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ userAgent })
+    });
+
+    if (res.ok) {
+        alert('Settings saved successfully');
+    } else {
+        alert('Error saving settings');
     }
 }
 

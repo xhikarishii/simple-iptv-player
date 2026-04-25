@@ -60,10 +60,18 @@ db.serialize(() => {
     // Safely add the column to existing databases (ignores the error if it already exists)
     db.run(`ALTER TABLE playlists ADD COLUMN sharedWith TEXT DEFAULT '[]'`, (err) => {});
 
+    db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
+
     db.get("SELECT count(*) as count FROM users", (err, row) => {
         if (row.count === 0) {
             const pass = bcrypt.hashSync('admin123', 10);
             db.run(`INSERT INTO users (username, password, role) VALUES ('admin', ?, 'admin')`, [pass]);
+        }
+    });
+
+    db.get("SELECT value FROM settings WHERE key = 'userAgent'", (err, row) => {
+        if (!row) {
+            db.run(`INSERT INTO settings (key, value) VALUES ('userAgent', 'AppleCoreMedia/1.0.0.19K362 (Apple TV; U; CPU OS 15_4 like Mac OS X; en_us)')`);
         }
     });
 });
@@ -212,6 +220,34 @@ app.put('/api/playlists/:id', authenticateToken, requireAdmin, (req, res) => {
 
 app.delete('/api/playlists/:id', authenticateToken, requireAdmin, (req, res) => {
     db.run(`DELETE FROM playlists WHERE id=?`, [req.params.id], () => res.sendStatus(200));
+});
+
+app.get('/api/settings', authenticateToken, (req, res) => {
+    db.all("SELECT * FROM settings", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const settings = {};
+        rows.forEach(r => settings[r.key] = r.value);
+        res.json(settings);
+    });
+});
+
+app.post('/api/settings', authenticateToken, requireAdmin, (req, res) => {
+    const settings = req.body;
+    const stmt = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+    
+    // We expect settings to be an object like { userAgent: '...' }
+    let count = 0;
+    const keys = Object.keys(settings);
+    if (keys.length === 0) return res.sendStatus(200);
+
+    keys.forEach(key => {
+        stmt.run(key, settings[key], (err) => {
+            count++;
+            if (count === keys.length) {
+                stmt.finalize(() => res.sendStatus(200));
+            }
+        });
+    });
 });
 
 app.listen(port);
