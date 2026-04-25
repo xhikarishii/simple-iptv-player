@@ -14,6 +14,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-regular-rounded/css/uicons-regular-rounded.css">
+    <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css">
 
     <style>
         :root {
@@ -484,7 +486,7 @@
         }
 
         .mobile-only-btn {
-            display: none;
+            display: none !important;
         }
 
         .now-playing-overlay.active {
@@ -929,10 +931,12 @@
         }
 
         .channel-cat {
+            display: block;
             font-size: 0.75rem;
             color: var(--text-dim);
             text-transform: uppercase;
             margin-top: 4px;
+            text-align: left;
         }
 
         /* EPG Fullscreen Overlay Overrides */
@@ -969,7 +973,7 @@
         }
 
         #channelModal .modal-content {
-            width: 450px !important;
+            width: 360px !important;
             max-width: 100% !important;
             height: 100vh !important;
             margin: 0 !important;
@@ -981,18 +985,113 @@
 
         #channelModal .channel-card.focused {
             background: var(--primary) !important;
-            border-color: white !important;
-            transform: scale(1.05);
+            border-color: transparent !important;
+            transform: scale(1.03);
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
             outline: none;
             z-index: 10;
         }
 
-        #channelModal .channel-card.playing {
-            background: rgba(59, 130, 246, 0.25) !important;
-            border-color: var(--primary) !important;
-            border-left: 3px solid var(--primary) !important;
+        /* TV mode: flat list cards with separators, fully left-aligned */
+        body.tv-mode #channelModal .channel-card {
+            border-radius: 0;
+            margin-bottom: 0;
+            border: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+            padding: 10px 14px;
+            background: transparent;
         }
+        body.tv-mode #channelModal ul#channelOverlayList > li:last-child {
+            border-bottom: none;
+        }
+        body.tv-mode #channelModal .channel-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        body.tv-mode #channelModal .channel-name,
+        body.tv-mode #channelModal .channel-program,
+        body.tv-mode #channelModal .channel-cat {
+            text-align: left;
+            display: block;
+        }
+        /* Currently-playing card: blue left accent strip */
+        body.tv-mode #channelModal .channel-card.playing {
+            background: rgba(59, 130, 246, 0.12) !important;
+            border-bottom-color: rgba(59, 130, 246, 0.2) !important;
+            box-shadow: inset 3px 0 0 var(--primary);
+        }
+
+        /* EPG live icon — adapts colour per card state */
+        body.tv-mode #channelModal .ch-epg-icon {
+            font-size: 0.65rem;
+            margin-right: 4px;
+            color: var(--primary);        /* default: blue on dark bg */
+            vertical-align: middle;
+        }
+        body.tv-mode #channelModal .channel-card.playing .ch-epg-icon {
+            color: #93c5fd;              /* playing: light blue — readable on tinted bg */
+        }
+        body.tv-mode #channelModal .channel-card.focused .ch-epg-icon {
+            color: rgba(255,255,255,0.85); /* focused: near-white — readable on solid blue bg */
+        }
+
+        /* Arrow nav buttons */
+        .ch-overlay-arrow {
+            flex-shrink: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 48px;
+            color: rgba(255,255,255,0.35);
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: color 0.2s;
+            user-select: none;
+        }
+        .ch-overlay-arrow:hover { color: rgba(255,255,255,0.85); }
+        .ch-overlay-arrow i { pointer-events: none; }
+
+        /* Fade masks top & bottom */
+        #channelOverlayWrapper {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* vertically centre the 5 items */
+            overflow: hidden;
+        }
+        #channelOverlayWrapper::before,
+        #channelOverlayWrapper::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            height: 60px;
+            pointer-events: none;
+            z-index: 5;
+        }
+        #channelOverlayWrapper::before {
+            top: 0;
+            background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%);
+        }
+        #channelOverlayWrapper::after {
+            bottom: 0;
+            background: linear-gradient(to top, rgba(15,23,42,0.95) 0%, transparent 100%);
+        }
+        /* Fix text colour conflicts inside the focused (highlighted) channel card */
+        #channelModal .channel-card.focused .channel-name,
+        #channelModal .channel-card.focused .channel-program,
+        #channelModal .channel-card.focused .channel-cat {
+            color: #ffffff !important;
+        }
+
+        /* Playing card: keep the blue accent on program text but ensure category is readable */
+        #channelModal .channel-card.playing .channel-program {
+            color: #93c5fd; /* lighter blue, readable on dark background */
+        }
+        #channelModal .channel-card.playing .channel-cat {
+            color: rgba(255,255,255,0.55);
+        }
+
 
         #epgModal .program-card-epg.focused {
             background: var(--primary) !important;
@@ -1104,7 +1203,7 @@
             }
 
             .mobile-only-btn {
-                display: block;
+                display: inline-flex !important;
                 background: var(--primary);
                 color: white;
                 border: none;
@@ -1286,6 +1385,45 @@
             box-shadow: 0 0 15px var(--primary);
             background: rgba(59, 130, 246, 0.3) !important;
         }
+
+        /* Now-Playing control buttons — uniform square icon buttons */
+        .ctrl-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.05rem;
+            transition: background 0.18s;
+            flex-shrink: 0;
+        }
+        .ctrl-btn:hover { background: rgba(255, 255, 255, 0.18); }
+
+        /* Label buttons (audio/subtitle) — icon + text, auto width */
+        .ctrl-btn-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 40px;
+            padding: 0 14px;
+            gap: 7px;
+            background: rgba(59, 130, 246, 0.2);
+            color: white;
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.18s;
+            flex-shrink: 0;
+        }
+        .ctrl-btn-label:hover { background: rgba(59, 130, 246, 0.35); }
     </style>
 </head>
 
@@ -1304,20 +1442,18 @@
                     style="color: var(--text-main); font-size: 0.95rem; font-weight: 600; margin-right: 10px;"></span>
 
                 <button onclick="openEpgGuide()"
-                    style="background: rgba(59, 130, 246, 0.15); color: var(--primary); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Guide</button>
+                    style="background: rgba(59, 130, 246, 0.15); color: var(--primary); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display:flex; align-items:center; gap:6px;"><i class="fi fi-rr-calendar" style="font-size:1rem;"></i> Guide</button>
 
                 <button onclick="toggleTvMode()" id="tvModeBtn"
-                    style="background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">TV
-                    Mode</button>
+                    style="background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display:flex; align-items:center; gap:6px;"><i class="fi fi-rr-tv" style="font-size:1rem;"></i> TV Mode</button>
 
                 <a href="/admin.html" id="adminLink"
-                    style="display: none; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9rem; font-weight: 600; transition: background 0.2s;">Admin
-                    Panel</a>
+                    style="display: none; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.9rem; font-weight: 600; transition: background 0.2s; align-items:center; gap:6px;"><i class="fi fi-rr-settings" style="font-size:1rem;"></i> Admin Panel</a>
 
                 <button onclick="logout()"
-                    style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Logout</button>
+                    style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; display:flex; align-items:center; gap:6px;"><i class="fi fi-rr-sign-out-alt" style="font-size:1rem;"></i> Logout</button>
             </div>
-            <button class="header-toggle-btn" onclick="toggleHeaderMenu()">☰</button>
+            <button class="header-toggle-btn" onclick="toggleHeaderMenu()"><i class="fi fi-rr-bars-horizontal"></i></button>
         </header>
 
         <main class="player-area">
@@ -1326,7 +1462,7 @@
                 <div id="ratioIndicator" class="ratio-indicator">SOURCE</div>
                 <div id="unmuteHint" onclick="unmuteVideo()"
                     style="display:none; position:absolute; top:20px; right:20px; background:rgba(59, 130, 246, 0.9); color:white; padding:10px 20px; border-radius:30px; cursor:pointer; z-index:60; font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.3); align-items:center; gap:8px;">
-                    <span>🔈 Click to Unmute</span>
+                    <i class="fi fi-rr-volume-mute"></i><span> Click to Unmute</span>
                 </div>
                 <div id="videoErrorOverlay" class="error-overlay">
                     <h3 id="errorTitle" style="margin:0;">Playback Error</h3>
@@ -1365,30 +1501,20 @@
                 <hr style="border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 0;">
 
                 <div id="customPlayerControls"
-                    style="display: flex; justify-content: center; align-items: center; gap: 15px; width: 100%;">
-                    <div style="display: flex; gap: 8px;">
+                    style="display: flex; justify-content: center; align-items: center; gap: 12px; width: 100%;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
                         <button id="btnAudioTrack" onclick="cycleAudioTrack()"
-                            style="display:none; background: rgba(59, 130, 246, 0.2); color: white; border: 1px solid rgba(59, 130, 246, 0.5); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">🎧
-                            Default</button>
+                            class="ctrl-btn-label" style="display:none;"><i class="fi fi-rr-headphones"></i> Default</button>
                         <button id="btnSubtitleTrack" onclick="cycleSubtitleTrack()"
-                            style="display:none; background: rgba(59, 130, 246, 0.2); color: white; border: 1px solid rgba(59, 130, 246, 0.5); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">💬
-                            Off</button>
+                            class="ctrl-btn-label" style="display:none;"><i class="fi fi-rr-subtitles"></i> Off</button>
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button id="btnPlayPause" onclick="togglePlayPause()"
-                            style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;">⏸</button>
-                        <button id="btnMute" onclick="toggleMute()"
-                            style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;">🔊</button>
-                        <button id="btnEpg" onclick="openEpgGuide()"
-                            style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"
-                            title="Program Guide">📅</button>
-                        <button id="btnAspectRatio" onclick="cycleAspectRatio()"
-                            style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"
-                            title="Aspect Ratio">📺</button>
-                        <button id="btnFullscreen" onclick="toggleFullscreen()"
-                            style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;">⛶</button>
-                        <button id="mobileMenuBtn" class="mobile-only-btn" onclick="toggleSidebar()"
-                            style="padding: 8px 12px;">☰</button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button id="btnPlayPause" onclick="togglePlayPause()" class="ctrl-btn"><i class="fi fi-sr-pause"></i></button>
+                        <button id="btnMute"       onclick="toggleMute()"       class="ctrl-btn"><i class="fi fi-sr-volume"></i></button>
+                        <button id="btnEpg"        onclick="openEpgGuide()"     class="ctrl-btn" title="Program Guide"><i class="fi fi-rr-calendar"></i></button>
+                        <button id="btnAspectRatio" onclick="cycleAspectRatio()" class="ctrl-btn" title="Aspect Ratio"><i class="fi fi-rr-expand-arrows-alt"></i></button>
+                        <button id="btnFullscreen" onclick="toggleFullscreen()"  class="ctrl-btn"><i class="fi fi-rr-expand"></i></button>
+                        <button id="mobileMenuBtn" onclick="toggleSidebar()"    class="ctrl-btn mobile-only-btn"><i class="fi fi-rr-bars-horizontal"></i></button>
                     </div>
                 </div>
             </div>
@@ -1407,7 +1533,7 @@
                 <div class="search-container">
                     <input type="text" id="channelSearch" class="filter-select" placeholder="Find a channel..."
                         oninput="filterChannels()" style="cursor: text;" autocomplete="off" spellcheck="false">
-                    <button id="clearSearchBtn" class="clear-search-btn" onclick="clearSearch()">✕</button>
+                    <button id="clearSearchBtn" class="clear-search-btn" onclick="clearSearch()"><i class="fi fi-rr-cross-small"></i></button>
                 </div>
 
                 <label
@@ -1421,21 +1547,18 @@
     <div id="menuBackdrop" class="menu-backdrop" onclick="toggleHeaderMenu()"></div>
 
     <div id="mobileSlidingMenu" class="mobile-sliding-menu">
-        <button class="menu-close-btn" onclick="toggleHeaderMenu()">✕</button>
+        <button class="menu-close-btn" onclick="toggleHeaderMenu()"><i class="fi fi-rr-cross-small"></i></button>
         <span id="mobileUserDisplay"
             style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 25px; display: block; font-weight: 600;"></span>
         <div style="display: flex; flex-direction: column; gap: 15px;">
             <button onclick="openEpgGuide(); toggleHeaderMenu();"
-                style="background: rgba(59, 130, 246, 0.15); color: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">Program
-                Guide</button>
+                style="background: rgba(59, 130, 246, 0.15); color: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; display:flex; align-items:center; gap:8px; justify-content:center;"><i class="fi fi-rr-calendar"></i> Program Guide</button>
             <button id="mobileTvModeBtn" onclick="toggleTvMode(); toggleHeaderMenu();"
-                style="background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer;">TV
-                Mode</button>
+                style="background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; display:flex; align-items:center; gap:8px; justify-content:center;"><i class="fi fi-rr-tv"></i> TV Mode</button>
             <a href="/admin.html" id="mobileAdminLink"
-                style="display: none; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center;">Admin
-                Panel</a>
+                style="display: none; background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: none; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; text-align: center; align-items:center; gap:8px; justify-content:center;"><i class="fi fi-rr-settings"></i> Admin Panel</a>
             <button onclick="logout()"
-                style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem;">Logout</button>
+                style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; display:flex; align-items:center; gap:8px; justify-content:center;"><i class="fi fi-rr-sign-out-alt"></i> Logout</button>
         </div>
     </div>
 
@@ -1469,11 +1592,13 @@
 
     <div id="channelModal" class="modal">
         <div class="modal-content" style="display: flex; flex-direction: column;">
-            <div id="channelOverlayContainer" style="flex-grow: 1; overflow-y: auto; overflow-x: hidden;">
+            <div class="ch-overlay-arrow" onclick="navigateChannelOverlay(-1)"><i class="fi fi-rr-angle-up"></i></div>
+            <div id="channelOverlayWrapper">
                 <ul id="channelOverlayList"
                     style="list-style:none; padding: 8px 0; margin:0; display: flex; flex-direction: column;">
                 </ul>
             </div>
+            <div class="ch-overlay-arrow" onclick="navigateChannelOverlay(1)"><i class="fi fi-rr-angle-down"></i></div>
         </div>
     </div>
 

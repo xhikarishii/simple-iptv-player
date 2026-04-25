@@ -101,11 +101,11 @@ async function verify() {
             currentUserId = String(data.id);
 
             // Update desktop header elements
-            document.getElementById('currentUserDisplay').innerText = `👤 ${data.username}`; // Desktop
+            document.getElementById('currentUserDisplay').innerHTML = `<i class="fi fi-rr-user" style="font-size:0.9rem;"></i> ${data.username}`; // Desktop
             document.getElementById('adminLink').style.display = data.role === 'admin' ? 'inline-block' : 'none'; // Desktop
 
             // Update mobile header elements
-            document.getElementById('mobileUserDisplay').innerText = `👤 ${data.username}`;
+            document.getElementById('mobileUserDisplay').innerHTML = `<i class="fi fi-rr-user" style="font-size:0.9rem;"></i> ${data.username}`;
             document.getElementById('mobileAdminLink').style.display = data.role === 'admin' ? 'block' : 'none';
 
             document.getElementById('loginModal').style.display = 'none';
@@ -317,9 +317,9 @@ async function initApp() {
         // Update resolution badge whenever ABR switches quality mid-stream
         player.addEventListener('adaptation', updateResolutionBadge);
 
-        video.addEventListener('play', () => document.getElementById('btnPlayPause').innerText = '⏸');
-        video.addEventListener('pause', () => document.getElementById('btnPlayPause').innerText = '▶');
-        video.addEventListener('volumechange', () => document.getElementById('btnMute').innerText = video.muted || video.volume === 0 ? '🔇' : '🔊');
+        video.addEventListener('play', () => document.getElementById('btnPlayPause').innerHTML = '<i class="fi fi-sr-pause"></i>');
+        video.addEventListener('pause', () => document.getElementById('btnPlayPause').innerHTML = '<i class="fi fi-sr-play"></i>');
+        video.addEventListener('volumechange', () => document.getElementById('btnMute').innerHTML = video.muted || video.volume === 0 ? '<i class="fi fi-sr-volume-mute"></i>' : '<i class="fi fi-sr-volume"></i>');
 
         // Upgraded CORS Proxy Filter (Handles HTTP Mixed Content & Root-Relative Paths)
         let currentUpstreamProtocol = '';
@@ -649,7 +649,7 @@ function updateNowPlayingEPG(isInitialLoad = false) {
         const newTitle = program ? program.title : 'Live Stream';
 
         if (program) {
-            programInfo.innerText = `🔴 ${program.title}`;
+            programInfo.innerHTML = `<i class="fi fi-rr-broadcast" style="color:var(--primary);"></i> ${program.title}`;
             if (progressContainer) {
                 const now = new Date();
                 const pct = Math.min(Math.max(((now - program.start) / (program.stop - program.start)) * 100, 0), 100);
@@ -957,7 +957,7 @@ function toggleSidebar() {
     const btn = document.getElementById('mobileMenuBtn');
     if (!sidebar || !btn) return;
     const isActive = sidebar.classList.toggle('active');
-    btn.innerText = isActive ? '✕ Close' : '☰ Channels';
+    btn.innerHTML = isActive ? '<i class="fi fi-rr-cross-small"></i> Close' : '<i class="fi fi-rr-list"></i> Channels';
 
     // Prevent background scrolling and reveal issues on mobile
     document.body.style.overflow = isActive ? 'hidden' : '';
@@ -1193,7 +1193,7 @@ function populateTracks() {
         btnAudio.style.display = 'block';
         const activeIdx = currentAudioTracks.findIndex(t => t.active);
         audioTrackIndex = activeIdx !== -1 ? activeIdx : 0;
-        btnAudio.innerText = `🎧 ${currentAudioTracks[audioTrackIndex].language || 'Unknown'}`;
+        btnAudio.innerHTML = `<i class="fi fi-rr-headphones"></i> ${currentAudioTracks[audioTrackIndex].language || 'Unknown'}`;
     } else {
         btnAudio.style.display = 'none';
         currentAudioTracks = [];
@@ -1206,11 +1206,11 @@ function populateTracks() {
         const isVisible = player.isTextTrackVisible();
         if (!isVisible) {
             subtitleTrackIndex = -1;
-            btnSubtitle.innerText = '💬 Off';
+            btnSubtitle.innerHTML = '<i class="fi fi-rr-subtitles"></i> Off';
         } else {
             const activeIdx = currentSubtitleTracks.findIndex(t => t.active);
             subtitleTrackIndex = activeIdx !== -1 ? activeIdx : 0;
-            btnSubtitle.innerText = `💬 ${currentSubtitleTracks[subtitleTrackIndex].language || currentSubtitleTracks[subtitleTrackIndex].label || 'Unknown'}`;
+            btnSubtitle.innerHTML = `<i class="fi fi-rr-subtitles"></i> ${currentSubtitleTracks[subtitleTrackIndex].language || currentSubtitleTracks[subtitleTrackIndex].label || 'Unknown'}`;
         }
     } else {
         btnSubtitle.style.display = 'none';
@@ -1260,7 +1260,7 @@ function cycleAudioTrack() {
     const track = currentAudioTracks[audioTrackIndex];
     if (track) {
         player.selectVariantTrack(track, true);
-        document.getElementById('btnAudioTrack').innerText = `🎧 ${track.language || 'Unknown'}`;
+        document.getElementById('btnAudioTrack').innerHTML = `<i class="fi fi-rr-headphones"></i> ${track.language || 'Unknown'}`;
     }
 }
 
@@ -1275,13 +1275,13 @@ function cycleSubtitleTrack() {
 
     if (subtitleTrackIndex === -1) {
         player.setTextTrackVisibility(false);
-        btnSubtitle.innerText = '💬 Off';
+        btnSubtitle.innerHTML = '<i class="fi fi-rr-subtitles"></i> Off';
     } else {
         const track = currentSubtitleTracks[subtitleTrackIndex];
         if (track) {
             player.selectTextTrack(track);
             player.setTextTrackVisibility(true);
-            btnSubtitle.innerText = `💬 ${track.language || track.label || 'Unknown'}`;
+            btnSubtitle.innerHTML = `<i class="fi fi-rr-subtitles"></i> ${track.language || track.label || 'Unknown'}`;
         }
     }
 }
@@ -1299,22 +1299,6 @@ function navigateChannel(direction) {
     const channel = currentFilteredChannels[nextIndex];
     const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
     playChannel(channel.url, keyStr);
-
-    // Update the .playing highlight in the channel sidebar without re-rendering
-    const items = document.querySelectorAll('#channelOverlayList .channel-card');
-    const totalChannels = currentFilteredChannels.length;
-    items.forEach((item, i) => {
-        if (i % totalChannels === nextIndex) {
-            item.classList.add('playing');
-            // Only scroll to view the item in the middle copy (second third)
-            const totalItems = items.length;
-            if (i >= totalChannels && i < totalChannels * 2) {
-                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        } else {
-            item.classList.remove('playing');
-        }
-    });
 
     // Reset the idle timer on every navigation action
     resetChannelGuideIdle();
@@ -1379,7 +1363,8 @@ document.addEventListener('keydown', (e) => {
         }
         clearControlsFocus();
         if (!isChannelOpen) openChannelGuide();
-        navigateChannel(-1);
+        // Move focus up in the virtual window — does NOT play yet
+        navigateChannelOverlay(-1);
     }
     // D-Pad Down — navigate channel rows in EPG, or next channel in sidebar
     else if (key === 'ArrowDown' || key === 'Down' || keyCode === 40) {
@@ -1394,7 +1379,8 @@ document.addEventListener('keydown', (e) => {
         }
         clearControlsFocus();
         if (!isChannelOpen) openChannelGuide();
-        navigateChannel(1);
+        // Move focus down in the virtual window — does NOT play yet
+        navigateChannelOverlay(1);
     }
     // D-Pad Left — navigate program cards left in EPG, or move controls focus
     else if (key === 'ArrowLeft' || key === 'Left' || keyCode === 37) {
@@ -1442,7 +1428,7 @@ document.addEventListener('keydown', (e) => {
             return;
         }
         if (isChannelOpen) {
-            const focused = document.querySelector('#channelOverlayList .channel-card.playing');
+            const focused = document.querySelector('#channelOverlayList .channel-card.focused');
             if (focused) focused.click();
             return;
         }
@@ -1537,86 +1523,104 @@ function openChannelGuide() {
 
 function closeChannelGuide() {
     if (channelGuideIdleTimer) clearTimeout(channelGuideIdleTimer);
+    cancelZap(); // discard any pending auto-play
     document.getElementById('channelModal').style.display = 'none';
 }
 
-function updateChannelOverlayFocus() {
-    const items = document.querySelectorAll('#channelOverlayList .channel-card');
-    items.forEach((item, idx) => {
-        if (idx === channelOverlayIndex) {
-            item.classList.add('focused');
-            // Ensure the focused item is visible during navigation
-            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        } else {
-            item.classList.remove('focused');
-        }
-    });
+// Zap delay: how long after the last D-pad move before auto-playing the focused channel.
+const ZAP_DELAY_MS = 800;
+let _zapTimer = null;
+
+function cancelZap() {
+    if (_zapTimer) { clearTimeout(_zapTimer); _zapTimer = null; }
 }
 
-function generateChannelListHtml(channels, epgUrl) {
-    return channels.map((channel) => {
-        const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
-        const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
-
-        const program = getProgramForChannel(channel.epgId, epgUrl);
-        const programHtml = program ? `<span class="channel-program">🔴 ${program.title}</span>` : '';
-        const isPlaying = channel.url === lastPlayedUrl;
-        const classes = `channel-card${isPlaying ? ' playing' : ''}`;
-
-        return `
-            <li class="${classes}" onclick="playChannel('${channel.url}', '${keyStr}'); closeChannelGuide();">
-                <img src="${logo}" class="channel-logo" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/54/1e293b/ffffff?text=TV';">
-                <div class="channel-meta">
-                    <span class="channel-name">${channel.name}</span>
-                    ${programHtml}
-                    <span class="channel-cat">${channel.cat || 'Uncategorized'}</span>
-                </div>
-            </li>`;
-    }).join('');
+function playFocusedOverlayChannel() {
+    cancelZap();
+    const idx = document.getElementById('playlistSelector').value;
+    const playlist = allPlaylists[idx];
+    if (!playlist || !playlist.channels.length) return;
+    const channel = playlist.channels[channelOverlayIndex];
+    if (!channel) return;
+    const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
+    playChannel(channel.url, keyStr);
+    // Re-render so the .playing class updates in the window
+    renderChannelOverlay();
 }
+
+function navigateChannelOverlay(direction) {
+    const idx = document.getElementById('playlistSelector').value;
+    const playlist = allPlaylists[idx];
+    if (!playlist || !playlist.channels.length) return;
+
+    const total = playlist.channels.length;
+    channelOverlayIndex = ((channelOverlayIndex + direction) % total + total) % total;
+    renderChannelOverlay();
+    resetChannelGuideIdle();
+
+    // Start (or restart) the zap timer — fires if the user stops navigating
+    cancelZap();
+    _zapTimer = setTimeout(playFocusedOverlayChannel, ZAP_DELAY_MS);
+}
+
+
+// Virtual 5-slot window: always renders exactly VISIBLE_COUNT items centred on
+// channelOverlayIndex. No scrolling, no DOM cloning — just pure index math.
+const OVERLAY_VISIBLE = 5;
 
 function renderChannelOverlay() {
     const idx = document.getElementById('playlistSelector').value;
     const playlist = allPlaylists[idx];
     const container = document.getElementById('channelOverlayList');
-    if (!playlist) return;
+    if (!playlist || !container) return;
 
+    const channels = playlist.channels;
+    const total = channels.length;
     const epgUrl = playlist.epg || '';
+    const half = Math.floor(OVERLAY_VISIBLE / 2);
 
-    // Render 3 copies of the playlist to allow for infinite scrolling
-    const singleCopyHtml = generateChannelListHtml(playlist.channels, epgUrl);
-    container.innerHTML = singleCopyHtml + singleCopyHtml + singleCopyHtml;
+    const html = [];
+    for (let slot = 0; slot < OVERLAY_VISIBLE; slot++) {
+        // Wrap index with modular arithmetic — loop seamlessly at boundaries
+        const chIdx = ((channelOverlayIndex - half + slot) % total + total) % total;
+        const channel = channels[chIdx];
+        const isFocused = slot === half;
+        const isPlaying = channel.url === lastPlayedUrl;
 
-    // Scroll to the middle copy, offset to the playing channel
-    const scrollContainer = document.getElementById('channelOverlayContainer');
-    setTimeout(() => {
-        if (!scrollContainer || scrollContainer.scrollHeight === 0) return;
-        const thirdHeight = scrollContainer.scrollHeight / 3;
-        const currentIdx = playlist.channels.findIndex(c => c.url === lastPlayedUrl);
-        // Approximate each item's height and offset within the middle copy
-        const itemHeight = scrollContainer.scrollHeight / (playlist.channels.length * 3);
-        const offset = currentIdx >= 0 ? (currentIdx * itemHeight) : 0;
-        scrollContainer.scrollTop = thirdHeight + offset - (scrollContainer.clientHeight / 2);
-    }, 50);
+        const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
+        const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
+        const program = getProgramForChannel(channel.epgId, epgUrl);
+        const programHtml = program
+            ? `<span class="channel-program" style="display:block;"><i class="fi fi-rr-signal-stream ch-epg-icon"></i>${program.title}</span>`
+            : '';
+
+        const classes = [
+            'channel-card',
+            isFocused ? 'focused' : '',
+            isPlaying ? 'playing' : '',
+        ].filter(Boolean).join(' ');
+
+        html.push(`
+            <li class="${classes}"
+                onclick="playChannel('${channel.url}', '${keyStr}'); closeChannelGuide();">
+                <img src="${logo}" class="channel-logo" loading="lazy"
+                    onerror="this.onerror=null;this.src='https://via.placeholder.com/54/1e293b/ffffff?text=TV';">
+                <div class="channel-meta">
+                    <span class="channel-name">${channel.name}</span>
+                    ${programHtml}
+                    <span class="channel-cat">${channel.cat || 'Uncategorized'}</span>
+                </div>
+            </li>`);
+    }
+
+    container.innerHTML = html.join('');
 }
 
-// Circular/Infinite Scrolling Logic
-document.getElementById('channelOverlayContainer').addEventListener('scroll', function () {
-    const scrollContainer = this;
-    const totalHeight = scrollContainer.scrollHeight;
-    if (totalHeight === 0) return;
+// updateChannelOverlayFocus is now a no-op alias — renderChannelOverlay handles focus inline
+function updateChannelOverlayFocus() {
+    renderChannelOverlay();
+}
 
-    const thirdHeight = totalHeight / 3;
-
-    // If scrolled too high (into the first copy), jump down to the middle copy
-    if (scrollContainer.scrollTop < thirdHeight * 0.2) {
-        scrollContainer.scrollTop += thirdHeight;
-    }
-    // If scrolled too low (into the third copy), jump up to the middle copy
-    else if (scrollContainer.scrollTop > thirdHeight * 2.8) {
-        scrollContainer.scrollTop -= thirdHeight;
-    }
-});
 
 function renderEpgOverlay() {
     const idx = document.getElementById('playlistSelector').value;
