@@ -29,27 +29,36 @@ function initEditors() {
 
 function getAuthHeaders() {
     return {
-        'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`,
+        'Authorization': `Bearer ${sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken')}`,
         'Content-Type': 'application/json'
     };
 }
 
 async function verifyAdmin() {
-    const token = localStorage.getItem('jwtToken');
+    const token = sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken');
     if (!token) return window.location.href = '/';
 
-    const res = await fetch('/api/auth/check', {
-        headers: getAuthHeaders()
-    });
-    if (res.ok) {
-        const data = await res.json();
-        if (data.role !== 'admin') return window.location.href = '/';
-        dynamicSecretKey = data.clientKey;
+    try {
+        const res = await fetch('/api/auth/check', {
+            headers: getAuthHeaders()
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.role !== 'admin') return window.location.href = '/';
+            dynamicSecretKey = data.clientKey;
 
-        initEditors(); // Initialize the code editors!
-        loadData();
-    } else {
-        window.location.href = '/';
+            initEditors(); // Initialize the code editors!
+            loadData();
+        } else if (res.status === 401 || res.status === 403) {
+            localStorage.removeItem('jwtToken');
+            sessionStorage.removeItem('jwtToken');
+            window.location.href = '/';
+        } else {
+            document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20vh;'>Server Error</h2>";
+        }
+    } catch (e) {
+        console.error('Network error during auth check', e);
+        document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20vh;'>Network Error. Please refresh.</h2>";
     }
 }
 

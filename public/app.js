@@ -16,7 +16,7 @@ let epgProgramIndex = 0; // Horizontal card selection
 let playerClickTimer = null;
 
 async function verify() {
-    const token = localStorage.getItem('jwtToken');
+    const token = sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken');
     if (!token) return showLogin();
     
     try {
@@ -51,16 +51,35 @@ async function verify() {
             await loadPlaylists(); 
 
             toggleAppLoader(false);
-        } else { showLogin(); }
-    } catch (e) { showLogin(); }
+        } else if (res.status === 401 || res.status === 403) {
+            showLogin(); 
+        } else {
+            console.error('Server error during auth check');
+            const loader = document.getElementById('appLoader');
+            if (loader) loader.innerHTML = "<h3 style='color:red;'>Server Error. Please refresh.</h3>";
+        }
+    } catch (e) { 
+        console.error('Network error during auth check', e);
+        const loader = document.getElementById('appLoader');
+        if (loader) loader.innerHTML = "<h3 style='color:red;'>Network Error. Please refresh.</h3>";
+    }
 }
 
 function showLogin() {
     localStorage.removeItem('jwtToken');
-    document.getElementById('playerUI').style.display = 'none';
+    sessionStorage.removeItem('jwtToken');
+    const playerUI = document.getElementById('playerUI');
+    if (playerUI) {
+        playerUI.style.display = 'none';
+        playerUI.style.filter = '';
+        playerUI.style.pointerEvents = 'auto';
+    }
     toggleAppLoader(false);
 
     document.getElementById('loginModal').style.display = 'flex';
+    
+    const noPlaylistModal = document.getElementById('noPlaylistModal');
+    if (noPlaylistModal) noPlaylistModal.style.display = 'none';
 
     if (typeof player !== 'undefined' && player) {
         player.unload(); // Instantly kills the active stream and audio
@@ -86,6 +105,7 @@ function logout() {
 async function submitLogin() {
     const username = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
+    const rememberMe = document.getElementById('loginRemember').checked;
     const res = await fetch('/api/login', {
         method: 'POST',
         headers: {
@@ -99,7 +119,13 @@ async function submitLogin() {
     if (res.ok) {
         const data = await res.json();
         toggleAppLoader(true);
-        localStorage.setItem('jwtToken', data.token);
+        if (rememberMe) {
+            localStorage.setItem('jwtToken', data.token);
+            sessionStorage.removeItem('jwtToken');
+        } else {
+            sessionStorage.setItem('jwtToken', data.token);
+            localStorage.removeItem('jwtToken');
+        }
         verify();
     } else {
         document.getElementById('loginResult').innerText = 'Invalid credentials';
@@ -110,9 +136,49 @@ async function initApp() {
     shaka.polyfill.installAll();
     if (shaka.Player.isBrowserSupported()) {
         const video = document.getElementById('video');
-        const ui = video['ui'];
-        uiControls = ui.getControls();
-        player = uiControls.getPlayer();
+        player = new shaka.Player(video);
+
+        // Live-streaming optimized configuration — minimal buffer for fast channel switching
+        player.configure({
+            streaming: {
+                // Keep only 3s of back-buffer; no need for rewind on live IPTV
+                bufferingGoal: 5,           // Target seconds to buffer ahead
+                rebufferingGoal: 2,         // Seconds needed before resuming after a stall
+                bufferBehind: 30,           // Max seconds of back-buffer to retain
+                jumpLargeGaps: true,        // Auto-skip gaps in live streams
+                durationBackoff: 1,         // Retry duration polling faster on live
+                retryParameters: {
+                    maxAttempts: 5,
+                    baseDelay: 1000,
+                    backoffFactor: 1.5,
+                    fuzzFactor: 0.5,
+                    timeout: 15000,
+                },
+                lowLatencyMode: false,      // Not all IPTV CDNs support LL-HLS; keep off
+                inaccurateManifestTolerance: 10,
+                stallEnabled: true,
+                stallThreshold: 1,          // Detect stalls quickly (1s)
+                stallSkip: 0.1,             // Skip 0.1s ahead to recover from micro-stalls
+            },
+            manifest: {
+                retryParameters: {
+                    maxAttempts: 5,
+                    baseDelay: 500,
+                    backoffFactor: 1.5,
+                    fuzzFactor: 0.5,
+                    timeout: 15000,
+                },
+                // Allow manifest updates to continue even with minor parse errors
+                ignoreDrmInfo: false,
+                defaultPresentationDelay: 5, // Join the live stream 5s behind the live edge
+            },
+        });
+
+        player.addEventListener('trackschanged', populateTracks);
+
+        video.addEventListener('play', () => document.getElementById('btnPlayPause').innerText = '⏸');
+        video.addEventListener('pause', () => document.getElementById('btnPlayPause').innerText = '▶');
+        video.addEventListener('volumechange', () => document.getElementById('btnMute').innerText = video.muted || video.volume === 0 ? '🔇' : '🔊');
 
         // Upgraded CORS Proxy Filter (Handles HTTP Mixed Content & Root-Relative Paths)
         let currentUpstreamProtocol = '';
@@ -122,7 +188,7 @@ async function initApp() {
             const url = request.uris[0];
 
             // 1. External URLs (The Mixed Content Fixer)
-            if (url.startsWith('http') && !url.includes(window.location.host)) {
+            if (url.startsWith('http://') && !url.includes(window.location.host)) {
                 // Save the upstream destination to fix broken relative paths later
                 try {
                     const urlObj = new URL(url);
@@ -145,11 +211,7 @@ async function initApp() {
             }
         });
 
-        ui.configure({
-            'controlPanelElements': ['play_pause', 'time_and_duration', 'spacer', 'caption', 'quality', 'language', 'fullscreen', 'overflow_menu']
-        });
-
-        player.addEventListener('error', (e) => handlePlaybackError(e.detail));
+        // Note: playback errors are handled inside playChannel's retry loop — not here.
     }
 }
 
@@ -168,76 +230,15 @@ function resetOverlayIdleTimer() {
     }, 5000); // Hide after 5 seconds of inactivity
 }
 
-// Setup Player Interaction Handlers (TV Mode Clicks & Taps for Toggling Overlays)
+// Keep overlay visible while mouse is moving in normal browser mode
 document.addEventListener('DOMContentLoaded', () => {
     const playerArea = document.querySelector('.player-area');
-    const chModal = document.getElementById('channelModal');
-    const epgModal = document.getElementById('epgModal');
+    if (!playerArea) return;
 
-    if (!playerArea || !chModal || !epgModal) return;
-
-    const handleInteraction = (e) => {
-        // Reset activity timer on any interaction
-        resetOverlayIdleTimer();
-
-        if (!document.body.classList.contains('tv-mode')) return;
-        
-        // Auto-unmute on any screen interaction in TV Mode
-        unmuteVideo();
-
-        // If clicking/tapping interactive elements like cards or buttons, ignore toggle logic
-        if (e.target.closest('.channel-card') || e.target.closest('.program-card-epg') || e.target.closest('.close-btn')) return;
-
-        // Intercept: Prevent Shaka Player from handling its own logic and stop propagation
-        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        if (e.cancelable) e.preventDefault();
-
-        if (playerClickTimer) {
-            clearTimeout(playerClickTimer);
-            playerClickTimer = null;
-            
-            // Double Click/Tap: Logic for EPG Guide
-            if (chModal.style.display === 'flex') closeChannelGuide();
-            
-            if (epgModal.style.display === 'flex') closeEpgGuide();
-            else openEpgGuide();
-        } else {
-            playerClickTimer = setTimeout(() => {
-                playerClickTimer = null;
-                
-                // Single Click/Tap: Logic for Channel List Overlay
-                // If EPG is open, a single tap should just close it (Standard TV UX)
-                if (epgModal.style.display === 'flex') {
-                    closeEpgGuide();
-                    return;
-                }
-
-                if (chModal.style.display === 'flex') closeChannelGuide();
-                else openChannelGuide();
-            }, 280); // 280ms is optimal for distinguishing single/double taps on most TV WebViews
-        }
-    };
-
-    // Monitor activity within the player area
-    playerArea.addEventListener('mousemove', resetOverlayIdleTimer);
-
-    // Bind to player area using capture phase to intercept Shaka UI layers
-    playerArea.addEventListener('click', handleInteraction, true);
-    playerArea.addEventListener('touchstart', handleInteraction, { capture: true, passive: false });
-
-    // Bind to modals backgrounds to allow "tap to close"
-    chModal.addEventListener('click', handleInteraction);
-    chModal.addEventListener('touchstart', handleInteraction, { passive: false });
-    epgModal.addEventListener('click', handleInteraction);
-    epgModal.addEventListener('touchstart', handleInteraction, { passive: false });
-
-    // Explicitly block native double-click to fullscreen in TV Mode
-    playerArea.addEventListener('dblclick', (e) => {
-        if (document.body.classList.contains('tv-mode')) {
-            e.stopImmediatePropagation();
-            e.preventDefault();
-        }
-    }, true);
+    // Only reset the idle timer on mouse movement — no click/tap interception
+    playerArea.addEventListener('mousemove', () => {
+        if (!document.body.classList.contains('tv-mode')) resetOverlayIdleTimer();
+    });
 });
 
 function decryptPayload(encryptedPayload) {
@@ -308,6 +309,13 @@ async function loadPlaylists() {
                     playChannel(first.url, first.key ? encodeURIComponent(first.key) : '', true);
                 }
             }, 800); // 800ms delay gives the proxy and Shaka time to breathe
+        } else {
+            const modal = document.getElementById('noPlaylistModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                document.getElementById('playerUI').style.filter = 'blur(10px)';
+                document.getElementById('playerUI').style.pointerEvents = 'none';
+            }
         }
     } catch (e) {
         console.error("Load error:", e);
@@ -375,8 +383,10 @@ async function loadAllEpgData(playlists) {
         if (epgDataCache[epgUrl]) continue; // Already loaded
 
         try {
-            // Use the proxy for EPG URLs as well, as they can be HTTP or external
-            const proxiedEpgUrl = window.location.origin + '/proxy/' + epgUrl;
+            // Use the proxy only for HTTP EPG URLs to prevent mixed-content blocks
+            const proxiedEpgUrl = epgUrl.startsWith('http://') 
+                ? window.location.origin + '/proxy/' + epgUrl 
+                : epgUrl;
             const res = await fetch(proxiedEpgUrl);
             if (!res.ok) throw new Error(`Failed to fetch EPG from ${epgUrl}`);
 
@@ -606,8 +616,13 @@ function renderChannels(channels) {
     }).join('');
 }
 
+let loadGeneration = 0; // Incremented on every playChannel call to invalidate stale retries
+
 async function playChannel(url, encodedKeyStr, isAutoplay = false) {
-    // Reset the error UI and state immediately when a new channel is selected
+    // Bump the generation so any in-flight retry loops know they're stale
+    const myGeneration = ++loadGeneration;
+
+    // Reset the error UI immediately when a new channel is selected
     document.getElementById('videoErrorOverlay').style.display = 'none';
 
     // Show "Now Showing" for 10 seconds
@@ -631,9 +646,9 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
             document.getElementById('nowPlayingName').innerText = match.name;
             document.getElementById('nowPlayingCat').innerText = match.cat || 'Uncategorized';
             document.getElementById('nowPlayingLogo').src = match.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
-            document.getElementById('nowPlayingProgram').dataset.currentTitle = ''; // Reset tracker
+            document.getElementById('nowPlayingProgram').dataset.currentTitle = '';
             updateNowPlayingEPG(true);
-            epgUpdateInterval = setInterval(updateNowPlayingEPG, 30000); // Update every 30s
+            epgUpdateInterval = setInterval(updateNowPlayingEPG, 30000);
             break;
         }
     }
@@ -653,12 +668,20 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
             toggleSidebar();
         }
 
-        // Unload the previous asset and reset player configuration for a clean start
-        await player.unload();
-        player.resetConfiguration();
-        
-        // Give the browser/TV hardware a moment to release decoder resources and reset state
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Safely unload — errors here are non-fatal, we just want a clean slate
+        try {
+            await player.unload();
+            player.resetConfiguration();
+        } catch (_) { /* ignore unload errors */ }
+
+        // If another channel was selected while we were unloading, abort silently
+        if (myGeneration !== loadGeneration) return;
+
+        // Give the browser/TV hardware a moment to release decoder resources
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // If another channel was selected during the delay, abort silently
+        if (myGeneration !== loadGeneration) return;
 
         const keyString = encodedKeyStr ? decodeURIComponent(encodedKeyStr).trim() : null;
         if (keyString) {
@@ -670,49 +693,72 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
             }
         }
 
-        // Add aggressive retry parameters directly to this load attempt
+        // Retry loop — up to 5 attempts with a 1.5s delay between each
+        const MAX_RETRIES = 5;
         let attempts = 0;
-        const maxRetries = 5;
         let success = false;
+        const errorOverlay = document.getElementById('videoErrorOverlay');
+        const errorTitle = document.getElementById('errorTitle');
+        const errorDescription = document.getElementById('errorDescription');
 
-        while (attempts < maxRetries && !success) {
+        while (attempts < MAX_RETRIES && !success) {
+            // Abort if user switched to a different channel mid-retry
+            if (myGeneration !== loadGeneration) return;
+
             try {
                 await player.load(url);
+                // Abort if user switched to a different channel while loading
+                if (myGeneration !== loadGeneration) return;
                 success = true;
+                errorOverlay.style.display = 'none';
             } catch (e) {
-                // If load is interrupted by a new selection, stop the retry loop
-                if (e.code === shaka.util.Error.Code.LOAD_INTERRUPTED) throw e;
-                
+                // A new channel was loaded — this load was cancelled intentionally
+                if (e.code === shaka.util.Error.Code.LOAD_INTERRUPTED) return;
+
+                // Abort stale retry if another channel was selected
+                if (myGeneration !== loadGeneration) return;
+
                 attempts++;
-                if (attempts >= maxRetries) throw e;
-                await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+
+                if (attempts >= MAX_RETRIES) {
+                    throw e; // Exhausted — surface the real error
+                }
+
+                // Show a non-alarming "connecting" message during retries
+                errorTitle.innerText = `Connecting\u2026 (${attempts}/${MAX_RETRIES})`;
+                errorDescription.innerText = 'Retrying stream, please wait.';
+                errorOverlay.style.display = 'flex';
+                document.querySelector('#videoErrorOverlay .btn-retry').style.display = 'none';
+
+                await new Promise(r => setTimeout(r, 1500));
             }
         }
 
-        // Standard browsers require a user gesture for audio. 
-        // We try to play; if it fails, we mute and try again automatically.
+        // Standard browsers require a user gesture for audio.
         if (isAutoplay) {
-            video.muted = true; // Start muted to guarantee it plays
+            video.muted = true;
             await video.play();
-            hint.style.display = 'flex'; // Show the button so the user can turn sound on
+            hint.style.display = 'flex';
         } else {
-            // User manually clicked a channel, try to play with sound
             video.muted = false;
             try {
                 await video.play();
                 hint.style.display = 'none';
             } catch (e) {
-                // If the browser still blocks it, fallback to muted + hint
                 video.muted = true;
                 await video.play();
                 hint.style.display = 'flex';
             }
         }
 
-    } catch (e) { 
-        // Only show the error overlay if this isn't a simple 'abort' error
+    } catch (e) {
+        // Don't show an error for a channel we've already moved away from
+        if (myGeneration !== loadGeneration) return;
+
         if (e.code !== shaka.util.Error.Code.LOAD_INTERRUPTED) {
-            handlePlaybackError(e); 
+            const retryBtn = document.querySelector('#videoErrorOverlay .btn-retry');
+            if (retryBtn) retryBtn.style.display = '';
+            handlePlaybackError(e);
         }
     }
 }
@@ -749,13 +795,18 @@ function toggleSidebar() {
 function detectTvMode() {
     const ua = navigator.userAgent;
     
-    // Explicit markers for major Smart TV platforms and streaming sticks
-    const tvMarkers = /SmartTV|Android TV|GoogleTV|AppleTV|Tizen|WebOS|HbbTV|NetCast|Viera|AFTB|AFTN|AFTM|AFTSS|CrKey|Large Screen|MiTV|SonyBravia|BRAVIA|NVIDIA SHIELD/i;
+    // Explicit markers for major Smart TV platforms, STBs, and Consoles
+    const tvMarkers = /SmartTV|SMART-TV|Android ?TV|GoogleTV|AppleTV|Tizen|WebOS|HbbTV|NetCast|Viera|AFT[A-Z]+|FireTV|Fire OS|CrKey|Chromecast|Large Screen|MiTV|MiBOX|SonyBravia|BRAVIA|NVIDIA SHIELD|Roku|PlayStation|Xbox|Nintendo|Vizio|Hisense|Panasonic|Philips|Sharp|VIDAA/i;
     
-    // Heuristic: Check for Android + TV combination (common in generic Android TV boxes)
-    const isAndroidTv = /Android/i.test(ua) && /TV/i.test(ua);
+    // Heuristic: Check for Android + TV/Box combination
+    const isAndroidTv = /Android/i.test(ua) && (/TV/i.test(ua) || /Box/i.test(ua) || /Nexus Player/i.test(ua));
     
-    if (tvMarkers.test(ua) || isAndroidTv) toggleTvMode(true);
+    // Generic fallback: Check if claiming to be TV/STB, but rule out regular desktop/mobile
+    const isGenericTv = /(TV|STB|Set-Top Box|10-foot|SetTopBox)/i.test(ua) && !/(iPhone|iPad|iPod|Windows|Mac OS X)/i.test(ua);
+
+    if (tvMarkers.test(ua) || isAndroidTv || isGenericTv) {
+        toggleTvMode(true);
+    }
 }
 
 function toggleTvMode(force) {
@@ -767,9 +818,108 @@ function toggleTvMode(force) {
     // Attempt to unmute automatically when entering TV mode
     if (isTv) unmuteVideo();
 
-    // Completely disable Shaka UI controls logic in TV mode
-    if (uiControls) {
-        uiControls.setEnabled(!isTv);
+}
+
+// --- CUSTOM PLAYER CONTROLS ---
+
+function togglePlayPause() {
+    const video = document.getElementById('video');
+    if (video.paused) {
+        video.play();
+    } else {
+        video.pause();
+    }
+}
+
+function toggleMute() {
+    const video = document.getElementById('video');
+    video.muted = !video.muted;
+}
+
+function toggleFullscreen() {
+    const wrapper = document.getElementById('videoWrapper');
+    if (!document.fullscreenElement) {
+        wrapper.requestFullscreen().catch(err => console.error("Error attempting to enable fullscreen:", err));
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+let currentAudioTracks = [];
+let currentSubtitleTracks = [];
+let audioTrackIndex = 0;
+let subtitleTrackIndex = -1; // -1 means off
+
+function populateTracks() {
+    const btnAudio = document.getElementById('btnAudioTrack');
+    const btnSubtitle = document.getElementById('btnSubtitleTrack');
+    if (!btnAudio || !btnSubtitle) return;
+
+    // Audio Tracks
+    const audioTracks = player.getVariantTracks().filter(t => t.type === 'variant');
+    currentAudioTracks = [...new Map(audioTracks.map(t => [t.language, t])).values()]; // Filter unique languages
+
+    if (currentAudioTracks.length > 1) {
+        btnAudio.style.display = 'block';
+        const activeIdx = currentAudioTracks.findIndex(t => t.active);
+        audioTrackIndex = activeIdx !== -1 ? activeIdx : 0;
+        btnAudio.innerText = `🎧 ${currentAudioTracks[audioTrackIndex].language || 'Unknown'}`;
+    } else {
+        btnAudio.style.display = 'none';
+        currentAudioTracks = [];
+    }
+
+    // Subtitle Tracks
+    currentSubtitleTracks = player.getTextTracks();
+    if (currentSubtitleTracks.length > 0) {
+        btnSubtitle.style.display = 'block';
+        const isVisible = player.isTextTrackVisible();
+        if (!isVisible) {
+            subtitleTrackIndex = -1;
+            btnSubtitle.innerText = '💬 Off';
+        } else {
+            const activeIdx = currentSubtitleTracks.findIndex(t => t.active);
+            subtitleTrackIndex = activeIdx !== -1 ? activeIdx : 0;
+            btnSubtitle.innerText = `💬 ${currentSubtitleTracks[subtitleTrackIndex].language || currentSubtitleTracks[subtitleTrackIndex].label || 'Unknown'}`;
+        }
+    } else {
+        btnSubtitle.style.display = 'none';
+        currentSubtitleTracks = [];
+    }
+}
+
+function cycleAudioTrack() {
+    if (currentAudioTracks.length <= 1) return;
+    
+    audioTrackIndex++;
+    if (audioTrackIndex >= currentAudioTracks.length) audioTrackIndex = 0;
+    
+    const track = currentAudioTracks[audioTrackIndex];
+    if (track) {
+        player.selectVariantTrack(track, true);
+        document.getElementById('btnAudioTrack').innerText = `🎧 ${track.language || 'Unknown'}`;
+    }
+}
+
+function cycleSubtitleTrack() {
+    if (currentSubtitleTracks.length === 0) return;
+    
+    subtitleTrackIndex++;
+    // Include -1 (Off) in the cycle
+    if (subtitleTrackIndex >= currentSubtitleTracks.length) subtitleTrackIndex = -1;
+    
+    const btnSubtitle = document.getElementById('btnSubtitleTrack');
+    
+    if (subtitleTrackIndex === -1) {
+        player.setTextTrackVisibility(false);
+        btnSubtitle.innerText = '💬 Off';
+    } else {
+        const track = currentSubtitleTracks[subtitleTrackIndex];
+        if (track) {
+            player.selectTextTrack(track);
+            player.setTextTrackVisibility(true);
+            btnSubtitle.innerText = `💬 ${track.language || track.label || 'Unknown'}`;
+        }
     }
 }
 
@@ -786,11 +936,61 @@ function navigateChannel(direction) {
     const channel = currentFilteredChannels[nextIndex];
     const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
     playChannel(channel.url, keyStr);
+
+    // Update the .playing highlight in the channel sidebar without re-rendering
+    const items = document.querySelectorAll('#channelOverlayList .channel-card');
+    const totalChannels = currentFilteredChannels.length;
+    items.forEach((item, i) => {
+        if (i % totalChannels === nextIndex) {
+            item.classList.add('playing');
+            // Only scroll to view the item in the middle copy (second third)
+            const totalItems = items.length;
+            if (i >= totalChannels && i < totalChannels * 2) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        } else {
+            item.classList.remove('playing');
+        }
+    });
+
+    // Reset the idle timer on every navigation action
+    resetChannelGuideIdle();
+}
+
+let controlsFocusIndex = -1; // -1 = no button focused
+
+function getControlButtons() {
+    return Array.from(document.querySelectorAll('#customPlayerControls button'))
+        .filter(btn => btn.style.display !== 'none' && btn.offsetParent !== null);
+}
+
+function setControlsFocus(index) {
+    const buttons = getControlButtons();
+    // Clear previous focus
+    buttons.forEach(btn => btn.classList.remove('tv-focused'));
+    if (index >= 0 && index < buttons.length) {
+        controlsFocusIndex = index;
+        buttons[index].classList.add('tv-focused');
+    } else {
+        controlsFocusIndex = -1;
+    }
+}
+
+function clearControlsFocus() {
+    getControlButtons().forEach(btn => btn.classList.remove('tv-focused'));
+    controlsFocusIndex = -1;
 }
 
 document.addEventListener('keydown', (e) => {
     // If login is showing, don't navigate
     if (document.getElementById('playerUI').style.display === 'none') return;
+
+    // If no playlists, prevent all interaction
+    const noPlaylistModal = document.getElementById('noPlaylistModal');
+    if (noPlaylistModal && noPlaylistModal.style.display === 'flex') return;
+
+    // All keyboard navigation is TV mode only
+    if (!document.body.classList.contains('tv-mode')) return;
 
     const key = e.key;
     const keyCode = e.keyCode;
@@ -799,129 +999,103 @@ document.addEventListener('keydown', (e) => {
     const isEpgOpen = epg && epg.style.display === 'flex';
     const isChannelOpen = chModal && chModal.style.display === 'flex';
 
-    // Reset idle timer on keyboard activity
+    // Reset idle timer & auto-unmute on any key press in TV mode
     resetOverlayIdleTimer();
+    unmuteVideo();
 
-    // Auto-unmute on remote/keyboard interaction in TV mode
-    if (document.body.classList.contains('tv-mode')) unmuteVideo();
-
-    // --- NAVIGATION WITHIN CHANNEL OVERLAY ---
-    if (isChannelOpen) {
-        const list = document.getElementById('channelOverlayList');
-        const items = list.querySelectorAll('.channel-card');
-        if (items.length === 0) return;
-
-        // Determine grid columns dynamically
-        const containerWidth = list.offsetWidth;
-        const itemWidth = items[0].offsetWidth + 20; // width + gap
-        const cols = Math.max(1, Math.floor(containerWidth / itemWidth));
-
-        if (key === 'ArrowUp' || key === 'Up' || keyCode === 38) {
-            e.preventDefault();
-            if (channelOverlayIndex >= cols) channelOverlayIndex -= cols;
-        } else if (key === 'ArrowDown' || key === 'Down' || keyCode === 40) {
-            e.preventDefault();
-            if (channelOverlayIndex + cols < items.length) channelOverlayIndex += cols;
-        } else if (key === 'ArrowLeft' || key === 'Left' || keyCode === 37) {
-            e.preventDefault();
-            if (channelOverlayIndex > 0) channelOverlayIndex--;
-        } else if (key === 'ArrowRight' || key === 'Right' || keyCode === 39) {
-            e.preventDefault();
-            if (channelOverlayIndex < items.length - 1) channelOverlayIndex++;
-        } else if (key === 'Enter' || key === 'OK' || key === 'Select' || keyCode === 13) {
-            e.preventDefault();
-            items[channelOverlayIndex].click();
-            return;
-        } else if (key === 'Escape' || key === 'Back' || keyCode === 27 || keyCode === 8) {
-            e.preventDefault();
-            closeChannelGuide();
-            return;
-        }
-
-        updateChannelOverlayFocus();
-        return; // Block zapping while overlay is open
-    }
-
-    // --- NAVIGATION WITHIN EPG OVERLAY ---
-    if (isEpgOpen) {
-        const rows = document.querySelectorAll('.channel-row-epg');
-        if (rows.length === 0) return;
-
-        const currentRow = rows[epgChannelIndex];
-        const programCards = currentRow.querySelectorAll('.program-card-epg');
-
-        if (key === 'ArrowUp' || key === 'Up' || keyCode === 38) {
-            e.preventDefault();
-            if (epgChannelIndex > 0) {
-                epgChannelIndex--;
-                epgProgramIndex = 0; // Reset horizontal on row change
-            }
-        } else if (key === 'ArrowDown' || key === 'Down' || keyCode === 40) {
-            e.preventDefault();
-            if (epgChannelIndex < rows.length - 1) {
-                epgChannelIndex++;
-                epgProgramIndex = 0;
-            }
-        } else if (key === 'ArrowLeft' || key === 'Left' || keyCode === 37) {
-            e.preventDefault();
-            if (epgProgramIndex > 0) epgProgramIndex--;
-        } else if (key === 'ArrowRight' || key === 'Right' || keyCode === 39) {
-            e.preventDefault();
-            if (epgProgramIndex < programCards.length - 1) epgProgramIndex++;
-        } else if (key === 'Enter' || key === 'OK' || key === 'Select' || keyCode === 13) {
-            e.preventDefault();
-            if (programCards[epgProgramIndex]) {
-                programCards[epgProgramIndex].click();
-            } else {
-                currentRow.querySelector('.channel-info-epg').click();
-            }
-            return;
-        } else if (key === 'Escape' || key === 'Back' || keyCode === 27 || keyCode === 8) {
-            e.preventDefault();
-            closeEpgGuide();
-            return;
-        }
-        updateEpgOverlayFocus();
-        return;
-    }
-
-    // Navigation Up / Channel Down / Previous Index
-    if (key === 'ArrowUp' || key === 'Up' || key === 'PageDown' || key === 'Page Down' || key === 'Next' || keyCode === 38 || keyCode === 19 || keyCode === 34 || keyCode === 167) {
-        if (isEpgOpen || isChannelOpen) return;
+    // D-Pad Up — navigate channel rows in EPG, or previous channel in sidebar
+    if (key === 'ArrowUp' || key === 'Up' || keyCode === 38) {
         e.preventDefault();
+        if (isEpgOpen) {
+            const rows = document.querySelectorAll('.channel-row-epg');
+            if (rows.length === 0) return;
+            epgChannelIndex = epgChannelIndex > 0 ? epgChannelIndex - 1 : rows.length - 1;
+            epgProgramIndex = 0;
+            updateEpgOverlayFocus();
+            return;
+        }
+        clearControlsFocus();
+        if (!isChannelOpen) openChannelGuide();
         navigateChannel(-1);
-    } 
-    // Navigation Down / Channel Up / Next Index
-    else if (key === 'ArrowDown' || key === 'Down' || key === 'PageUp' || key === 'Page Up' || key === 'Prior' || keyCode === 40 || keyCode === 20 || keyCode === 33 || keyCode === 166) {
-        if (isEpgOpen || isChannelOpen) return;
+    }
+    // D-Pad Down — navigate channel rows in EPG, or next channel in sidebar
+    else if (key === 'ArrowDown' || key === 'Down' || keyCode === 40) {
         e.preventDefault();
+        if (isEpgOpen) {
+            const rows = document.querySelectorAll('.channel-row-epg');
+            if (rows.length === 0) return;
+            epgChannelIndex = epgChannelIndex < rows.length - 1 ? epgChannelIndex + 1 : 0;
+            epgProgramIndex = 0;
+            updateEpgOverlayFocus();
+            return;
+        }
+        clearControlsFocus();
+        if (!isChannelOpen) openChannelGuide();
         navigateChannel(1);
-    } 
-    // OK / Enter / Select for EPG Toggle
-    else if (key === 'Enter' || key === 'OK' || key === 'Select' || keyCode === 13) {
+    }
+    // D-Pad Left — navigate program cards left in EPG, or move controls focus
+    else if (key === 'ArrowLeft' || key === 'Left' || keyCode === 37) {
         e.preventDefault();
-        if (isEpgOpen) closeEpgGuide();
-        else openEpgGuide();
-    } else if (e.key === 'Escape' && document.body.classList.contains('tv-mode')) {
-        toggleTvMode(false); // Back out of TV mode on PC
+        if (isEpgOpen) {
+            const row = document.querySelectorAll('.channel-row-epg')[epgChannelIndex];
+            if (!row) return;
+            const cards = row.querySelectorAll('.program-card-epg');
+            if (cards.length === 0) return;
+            epgProgramIndex = epgProgramIndex > 0 ? epgProgramIndex - 1 : 0;
+            updateEpgOverlayFocus();
+            return;
+        }
+        if (isChannelOpen) return;
+        const buttons = getControlButtons();
+        if (buttons.length === 0) return;
+        let next = controlsFocusIndex <= 0 ? buttons.length - 1 : controlsFocusIndex - 1;
+        setControlsFocus(next);
+    }
+    // D-Pad Right — navigate program cards right in EPG, or move controls focus
+    else if (key === 'ArrowRight' || key === 'Right' || keyCode === 39) {
+        e.preventDefault();
+        if (isEpgOpen) {
+            const row = document.querySelectorAll('.channel-row-epg')[epgChannelIndex];
+            if (!row) return;
+            const cards = row.querySelectorAll('.program-card-epg');
+            if (cards.length === 0) return;
+            epgProgramIndex = epgProgramIndex < cards.length - 1 ? epgProgramIndex + 1 : epgProgramIndex;
+            updateEpgOverlayFocus();
+            return;
+        }
+        if (isChannelOpen) return;
+        const buttons = getControlButtons();
+        if (buttons.length === 0) return;
+        let next = controlsFocusIndex < 0 || controlsFocusIndex >= buttons.length - 1 ? 0 : controlsFocusIndex + 1;
+        setControlsFocus(next);
+    }
+    // Enter / OK — play focused EPG channel, activate sidebar channel, or press control button
+    else if (key === 'Enter' || keyCode === 13) {
+        e.preventDefault();
+        if (isEpgOpen) {
+            // Try focused program card first, else click the channel info row
+            const focused = document.querySelector('.program-card-epg.focused, .channel-info-epg.focused');
+            if (focused) focused.click();
+            return;
+        }
+        if (isChannelOpen) {
+            const focused = document.querySelector('#channelOverlayList .channel-card.playing');
+            if (focused) focused.click();
+            return;
+        }
+        if (controlsFocusIndex >= 0) {
+            const buttons = getControlButtons();
+            if (buttons[controlsFocusIndex]) buttons[controlsFocusIndex].click();
+        }
+    }
+    // Escape — clear focus, close overlays, or exit TV mode
+    else if (key === 'Escape' || keyCode === 27) {
+        if (controlsFocusIndex >= 0) { clearControlsFocus(); return; }
+        if (isEpgOpen) { closeEpgGuide(); return; }
+        if (isChannelOpen) { closeChannelGuide(); return; }
+        toggleTvMode(false);
     }
 });
-
-window.addEventListener('wheel', (e) => {
-    // Only navigate via wheel if TV mode is active and login is hidden
-    if (!document.body.classList.contains('tv-mode')) return;
-    if (document.getElementById('playerUI').style.display === 'none') return;
-
-    // Don't switch channels if EPG is open
-    const epg = document.getElementById('epgModal');
-    if (epg && epg.style.display === 'flex') return;
-
-    if (e.deltaY < 0) {
-        navigateChannel(-1); // Scroll Up -> Previous Channel
-    } else if (e.deltaY > 0) {
-        navigateChannel(1);  // Scroll Down -> Next Channel
-    }
-}, { passive: true });
 
 function openEpgGuide() {
     // Set initial focus to the currently playing channel
@@ -976,6 +1150,16 @@ function updateEpgOverlayFocus() {
     });
 }
 
+let channelGuideIdleTimer = null;
+const CHANNEL_GUIDE_IDLE_MS = 5000; // Auto-close after 5s of no navigation
+
+function resetChannelGuideIdle() {
+    if (channelGuideIdleTimer) clearTimeout(channelGuideIdleTimer);
+    channelGuideIdleTimer = setTimeout(() => {
+        closeChannelGuide();
+    }, CHANNEL_GUIDE_IDLE_MS);
+}
+
 function openChannelGuide() {
     // Find index of currently playing channel to set initial focus
     const idx = document.getElementById('playlistSelector').value;
@@ -985,9 +1169,11 @@ function openChannelGuide() {
 
     renderChannelOverlay();
     document.getElementById('channelModal').style.display = 'flex';
+    resetChannelGuideIdle();
 }
 
 function closeChannelGuide() {
+    if (channelGuideIdleTimer) clearTimeout(channelGuideIdleTimer);
     document.getElementById('channelModal').style.display = 'none';
 }
 
@@ -1004,24 +1190,18 @@ function updateChannelOverlayFocus() {
     });
 }
 
-function renderChannelOverlay() {
-    const idx = document.getElementById('playlistSelector').value;
-    const playlist = allPlaylists[idx];
-    const container = document.getElementById('channelOverlayList');
-    if (!playlist) return;
-
-    const epgUrl = playlist.epg || '';
-
-    container.innerHTML = playlist.channels.map((channel, index) => {
+function generateChannelListHtml(channels, epgUrl) {
+    return channels.map((channel) => {
         const keyStr = channel.key ? encodeURIComponent(channel.key) : '';
         const logo = channel.logo || 'https://via.placeholder.com/54/1e293b/ffffff?text=TV';
         
         const program = getProgramForChannel(channel.epgId, epgUrl);
         const programHtml = program ? `<span class="channel-program">🔴 ${program.title}</span>` : '';
-        const isFocused = index === channelOverlayIndex ? 'focused' : '';
+        const isPlaying = channel.url === lastPlayedUrl;
+        const classes = `channel-card${isPlaying ? ' playing' : ''}`;
 
         return `
-            <li class="channel-card ${isFocused}" onclick="playChannel('${channel.url}', '${keyStr}'); closeChannelGuide();">
+            <li class="${classes}" onclick="playChannel('${channel.url}', '${keyStr}'); closeChannelGuide();">
                 <img src="${logo}" class="channel-logo" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/54/1e293b/ffffff?text=TV';">
                 <div class="channel-meta">
                     <span class="channel-name">${channel.name}</span>
@@ -1031,6 +1211,49 @@ function renderChannelOverlay() {
             </li>`;
     }).join('');
 }
+
+function renderChannelOverlay() {
+    const idx = document.getElementById('playlistSelector').value;
+    const playlist = allPlaylists[idx];
+    const container = document.getElementById('channelOverlayList');
+    if (!playlist) return;
+
+    const epgUrl = playlist.epg || '';
+
+    // Render 3 copies of the playlist to allow for infinite scrolling
+    const singleCopyHtml = generateChannelListHtml(playlist.channels, epgUrl);
+    container.innerHTML = singleCopyHtml + singleCopyHtml + singleCopyHtml;
+
+    // Scroll to the middle copy, offset to the playing channel
+    const scrollContainer = document.getElementById('channelOverlayContainer');
+    setTimeout(() => {
+        if (!scrollContainer || scrollContainer.scrollHeight === 0) return;
+        const thirdHeight = scrollContainer.scrollHeight / 3;
+        const currentIdx = playlist.channels.findIndex(c => c.url === lastPlayedUrl);
+        // Approximate each item's height and offset within the middle copy
+        const itemHeight = scrollContainer.scrollHeight / (playlist.channels.length * 3);
+        const offset = currentIdx >= 0 ? (currentIdx * itemHeight) : 0;
+        scrollContainer.scrollTop = thirdHeight + offset - (scrollContainer.clientHeight / 2);
+    }, 50);
+}
+
+// Circular/Infinite Scrolling Logic
+document.getElementById('channelOverlayContainer').addEventListener('scroll', function() {
+    const scrollContainer = this;
+    const totalHeight = scrollContainer.scrollHeight;
+    if (totalHeight === 0) return;
+    
+    const thirdHeight = totalHeight / 3;
+    
+    // If scrolled too high (into the first copy), jump down to the middle copy
+    if (scrollContainer.scrollTop < thirdHeight * 0.2) {
+        scrollContainer.scrollTop += thirdHeight;
+    } 
+    // If scrolled too low (into the third copy), jump up to the middle copy
+    else if (scrollContainer.scrollTop > thirdHeight * 2.8) {
+        scrollContainer.scrollTop -= thirdHeight;
+    }
+});
 
 function renderEpgOverlay() {
     const idx = document.getElementById('playlistSelector').value;
