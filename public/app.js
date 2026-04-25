@@ -911,86 +911,67 @@ function detectTvMode() {
         return;
     }
     if (layoutMode === 'browser') {
-        // Explicitly keep browser mode — do not auto-detect
         return;
     }
 
     // --- Auto-detect mode: fingerprint the User-Agent ---
     const ua = navigator.userAgent;
 
-    // 1. Explicit Smart TV / STB platform strings
+    // 0. Guard: if the UA clearly belongs to a desktop or mobile OS, bail out immediately.
+    //    This prevents any of the heuristics below from causing false positives on Chrome,
+    //    Firefox, Edge, or Safari running on a normal computer or phone.
+    const isDefinitelyDesktopOrMobile =
+        /Windows NT/i.test(ua) ||          // Windows desktop
+        /Macintosh|Mac OS X/i.test(ua) ||  // macOS desktop (includes Safari on Mac)
+        /\(iPhone/i.test(ua) ||            // iPhone
+        /\(iPad/i.test(ua) ||              // iPad
+        /iPod/i.test(ua) ||               // iPod
+        // Android without any TV markers = phone/tablet
+        (/Android/i.test(ua) && !/TV|Box|AFT|Nexus Player/i.test(ua));
+
+    if (isDefinitelyDesktopOrMobile) return;
+
+    // 1. Authoritative TV/STB platform strings — highly specific, very low false-positive rate
     const tvMarkers = new RegExp([
-        // Samsung Tizen
-        'Tizen',
-        // LG webOS
-        'WebOS', 'web0S', 'NetCast',
-        // HbbTV (European broadcast standard for all Smart TVs)
-        'HbbTV',
-        // Android TV / Google TV
-        'Android.?TV', 'GoogleTV', 'CrKey',
-        // Amazon Fire TV / Fire OS
-        'AFT[A-Z0-9]+', 'FireTV', 'Fire OS', 'AFTS', 'AFTN', 'AFTM', 'AFTT',
-        // Apple TV
-        'AppleTV', 'Apple TV',
-        // Roku
-        'Roku',
-        // Chromecast
-        'Chromecast',
-        // Sony Bravia
-        'SonyBravia', 'BRAVIA', 'Sony.BRAVIA',
-        // NVIDIA SHIELD
-        'NVIDIA SHIELD', 'SHIELD',
-        // Panasonic
-        'Panasonic', 'Viera',
-        // Philips
-        'Philips',
-        // Sharp
-        'Sharp',
-        // Hisense / VIDAA
-        'Hisense', 'VIDAA',
-        // Vizio
-        'Vizio',
-        // MiTV / MiBox (Xiaomi)
-        'MiTV', 'MiBOX', 'Xiaomi.*TV', 'MIBOX',
-        // TCL
-        'TCL.*TV',
-        // Vestel (OEM behind many European brands)
-        'Vestel',
-        // Zeasn / Whale browser (used in many budget Smart TVs)
-        'Whale',
-        // Foxxum (Philips, Grundig, Blaupunkt)
-        'Foxxum',
-        // Arcelik / Grundig / Beko
-        'Arcelik',
-        // Orsay (older Samsung Smart TV platform)
-        'Orsay',
-        // STBs / set-top boxes
-        'SmartTV', 'SMART-TV', 'Large Screen',
-        // Game consoles (often used for streaming)
-        'PlayStation', 'Xbox', 'Nintendo',
+        'Tizen',                          // Samsung Smart TV
+        'WebOS', 'web0S', 'NetCast',     // LG Smart TV
+        'HbbTV',                          // European broadcast standard (all Smart TVs)
+        'Android.?TV', 'GoogleTV', 'CrKey', // Android TV / Google TV / Chromecast
+        'AFT[A-Z0-9]+', 'FireTV', 'Fire OS', // Amazon Fire TV (all model codes)
+        'AppleTV',                        // Apple TV (note: no space — avoids false match on "Apple")
+        'Roku/?\\d',                      // Roku (with optional version to avoid matching "Roku" in user-set names)
+        'Chromecast',                     // Chromecast
+        'SonyBRST|BRAVIA',               // Sony Bravia (specific identifiers)
+        'NVIDIA.SHIELD',                  // NVIDIA SHIELD (requires dot, avoids bare "SHIELD")
+        'Viera',                          // Panasonic Viera (specific to Panasonic TVs)
+        'VIDAA',                          // Hisense VIDAA
+        'MiTV|MiBOX|MIBOX3',             // Xiaomi Mi TV / Mi Box
+        'TCL\\.TV|SmartTV',              // TCL TV / generic SmartTV marker
+        'SMART-TV',                       // Generic Smart TV marker
+        'Vestel',                         // Vestel OEM TVs (many European brands)
+        'Foxxum',                         // Foxxum (Philips/Grundig/Blaupunkt)
+        'Arcelik',                        // Arcelik/Beko
+        'Orsay',                          // Old Samsung platform
+        'PlayStation [3-5]|PS[3-5]',     // PlayStation consoles (specific, avoids partial matches)
+        'Xbox',                           // Xbox (fairly specific in UA strings)
     ].join('|'), 'i');
 
-    // 2. Android running on a TV/Box (no touchscreen, typically)
+    // 2. Android on a TV device — model codes or explicit TV marker
     const isAndroidTv = /Android/i.test(ua) && (
-        /TV/i.test(ua) ||
-        /Box/i.test(ua) ||
+        /\bAndroid TV\b/i.test(ua) ||
+        /\bGoogle TV\b/i.test(ua) ||
         /Nexus Player/i.test(ua) ||
-        /AFTB|AFTM|AFTS|AFTN|AFTT|AFTA|AFTDCT|AFTDCX/i.test(ua)
+        /\b(AFTB|AFTM|AFTS|AFTN|AFTT|AFTA|AFTDCT|AFTDCX)\b/i.test(ua) ||
+        // Android Box: must say "Box" and NOT have "Mobile" in the UA
+        (/\bBox\b/i.test(ua) && !/Mobile/i.test(ua))
     );
 
-    // 3. Generic keyword heuristic (exclude known desktop/mobile OS strings)
-    const isGenericTv = /(TV|STB|Set-Top.?Box|10-foot|SetTopBox|IPTV|OTT)/i.test(ua) &&
-        !/(iPhone|iPad|iPod|Windows NT|Macintosh|Mac OS X|Android(?!.*TV))/i.test(ua);
+    // 3. Tightly constrained generic heuristic — only fire if UA explicitly says STB/IPTV/OTT
+    //    AND does not contain any desktop/mobile OS marker
+    const isGenericTv =
+        /(Set-Top.?Box|SetTopBox|10-foot|IPTV|OTT.?Box)/i.test(ua);
 
-    // 4. Screen resolution heuristic: typical TV resolutions with no touch
-    const isLargeScreenNoTouch = (
-        window.screen &&
-        window.screen.width >= 1920 &&
-        !('ontouchstart' in window) &&
-        navigator.maxTouchPoints === 0
-    );
-
-    if (tvMarkers.test(ua) || isAndroidTv || isGenericTv || isLargeScreenNoTouch) {
+    if (tvMarkers.test(ua) || isAndroidTv || isGenericTv) {
         toggleTvMode(true);
     }
 }
