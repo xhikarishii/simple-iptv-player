@@ -1434,7 +1434,10 @@ function toggleHeaderMenu() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', verify);
+// app.js is loaded at the end of <body>, so the DOM is fully ready at this point.
+// Calling verify() directly is more reliable than using DOMContentLoaded, which
+// may have already fired by the time this deferred script executes.
+verify();
 
 // --- ANTI-DEBUGGING SAFEGUARDS ---
 document.addEventListener('contextmenu', event => event.preventDefault());
