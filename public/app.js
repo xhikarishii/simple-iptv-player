@@ -24,8 +24,8 @@ const aspectRatios = [
 ];
 
 async function verify() {
-    // Detect TV environment immediately on every page load — before auth check,
-    // so TV mode styles apply on first visit (login screen) too, not just after refresh.
+    // Phase 1: early UA-only detection — applies TV mode to the login screen
+    // before any settings are fetched. No layoutMode override is available yet.
     detectTvMode();
 
     const token = sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken');
@@ -62,6 +62,10 @@ async function verify() {
             } catch (e) {
                 console.error("Error loading settings:", e);
             }
+
+            // 1.6 Phase 2: re-run detection now that layoutMode from settings is known.
+            // This enforces "Always TV" / "Always Browser" overrides if configured.
+            detectTvMode();
 
             // 1.7 Load local preferences (like aspect ratio)
             loadLocalPreferences();
@@ -899,18 +903,94 @@ function toggleSidebar() {
 }
 
 function detectTvMode() {
+    const layoutMode = globalSettings.layoutMode || 'autodetect';
+
+    // Hard overrides — respect admin setting
+    if (layoutMode === 'tv') {
+        toggleTvMode(true);
+        return;
+    }
+    if (layoutMode === 'browser') {
+        // Explicitly keep browser mode — do not auto-detect
+        return;
+    }
+
+    // --- Auto-detect mode: fingerprint the User-Agent ---
     const ua = navigator.userAgent;
 
-    // Explicit markers for major Smart TV platforms, STBs, and Consoles
-    const tvMarkers = /SmartTV|SMART-TV|Android ?TV|GoogleTV|AppleTV|Tizen|WebOS|HbbTV|NetCast|Viera|AFT[A-Z]+|FireTV|Fire OS|CrKey|Chromecast|Large Screen|MiTV|MiBOX|SonyBravia|BRAVIA|NVIDIA SHIELD|Roku|PlayStation|Xbox|Nintendo|Vizio|Hisense|Panasonic|Philips|Sharp|VIDAA/i;
+    // 1. Explicit Smart TV / STB platform strings
+    const tvMarkers = new RegExp([
+        // Samsung Tizen
+        'Tizen',
+        // LG webOS
+        'WebOS', 'web0S', 'NetCast',
+        // HbbTV (European broadcast standard for all Smart TVs)
+        'HbbTV',
+        // Android TV / Google TV
+        'Android.?TV', 'GoogleTV', 'CrKey',
+        // Amazon Fire TV / Fire OS
+        'AFT[A-Z0-9]+', 'FireTV', 'Fire OS', 'AFTS', 'AFTN', 'AFTM', 'AFTT',
+        // Apple TV
+        'AppleTV', 'Apple TV',
+        // Roku
+        'Roku',
+        // Chromecast
+        'Chromecast',
+        // Sony Bravia
+        'SonyBravia', 'BRAVIA', 'Sony.BRAVIA',
+        // NVIDIA SHIELD
+        'NVIDIA SHIELD', 'SHIELD',
+        // Panasonic
+        'Panasonic', 'Viera',
+        // Philips
+        'Philips',
+        // Sharp
+        'Sharp',
+        // Hisense / VIDAA
+        'Hisense', 'VIDAA',
+        // Vizio
+        'Vizio',
+        // MiTV / MiBox (Xiaomi)
+        'MiTV', 'MiBOX', 'Xiaomi.*TV', 'MIBOX',
+        // TCL
+        'TCL.*TV',
+        // Vestel (OEM behind many European brands)
+        'Vestel',
+        // Zeasn / Whale browser (used in many budget Smart TVs)
+        'Whale',
+        // Foxxum (Philips, Grundig, Blaupunkt)
+        'Foxxum',
+        // Arcelik / Grundig / Beko
+        'Arcelik',
+        // Orsay (older Samsung Smart TV platform)
+        'Orsay',
+        // STBs / set-top boxes
+        'SmartTV', 'SMART-TV', 'Large Screen',
+        // Game consoles (often used for streaming)
+        'PlayStation', 'Xbox', 'Nintendo',
+    ].join('|'), 'i');
 
-    // Heuristic: Check for Android + TV/Box combination
-    const isAndroidTv = /Android/i.test(ua) && (/TV/i.test(ua) || /Box/i.test(ua) || /Nexus Player/i.test(ua));
+    // 2. Android running on a TV/Box (no touchscreen, typically)
+    const isAndroidTv = /Android/i.test(ua) && (
+        /TV/i.test(ua) ||
+        /Box/i.test(ua) ||
+        /Nexus Player/i.test(ua) ||
+        /AFTB|AFTM|AFTS|AFTN|AFTT|AFTA|AFTDCT|AFTDCX/i.test(ua)
+    );
 
-    // Generic fallback: Check if claiming to be TV/STB, but rule out regular desktop/mobile
-    const isGenericTv = /(TV|STB|Set-Top Box|10-foot|SetTopBox)/i.test(ua) && !/(iPhone|iPad|iPod|Windows|Mac OS X)/i.test(ua);
+    // 3. Generic keyword heuristic (exclude known desktop/mobile OS strings)
+    const isGenericTv = /(TV|STB|Set-Top.?Box|10-foot|SetTopBox|IPTV|OTT)/i.test(ua) &&
+        !/(iPhone|iPad|iPod|Windows NT|Macintosh|Mac OS X|Android(?!.*TV))/i.test(ua);
 
-    if (tvMarkers.test(ua) || isAndroidTv || isGenericTv) {
+    // 4. Screen resolution heuristic: typical TV resolutions with no touch
+    const isLargeScreenNoTouch = (
+        window.screen &&
+        window.screen.width >= 1920 &&
+        !('ontouchstart' in window) &&
+        navigator.maxTouchPoints === 0
+    );
+
+    if (tvMarkers.test(ua) || isAndroidTv || isGenericTv || isLargeScreenNoTouch) {
         toggleTvMode(true);
     }
 }

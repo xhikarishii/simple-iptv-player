@@ -466,6 +466,12 @@ async function loadSettings() {
             document.getElementById('customUAContainer').style.display = 'none';
         }
     }
+
+    // Layout Mode
+    const layoutSelect = document.getElementById('settingLayoutMode');
+    if (settings.layoutMode && layoutSelect) {
+        layoutSelect.value = settings.layoutMode;
+    }
 }
 
 function handleUADropdownChange() {
@@ -477,15 +483,17 @@ function handleUADropdownChange() {
 async function saveSettings() {
     const uaSelect = document.getElementById('settingUserAgent');
     const customUA = document.getElementById('customUserAgent').value;
+    const layoutSelect = document.getElementById('settingLayoutMode');
     
     const userAgent = uaSelect.value === 'custom' ? customUA : uaSelect.value;
+    const layoutMode = layoutSelect ? layoutSelect.value : 'autodetect';
     
     if (!userAgent) return alert('User-Agent cannot be empty');
 
     const res = await fetch('/api/settings', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ userAgent })
+        body: JSON.stringify({ userAgent, layoutMode })
     });
 
     if (res.ok) {

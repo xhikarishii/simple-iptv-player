@@ -404,6 +404,17 @@
                 <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Custom User-Agent String</label>
                 <input type="text" id="customUserAgent" placeholder="e.g. Mozilla/5.0...">
             </div>
+
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.07); margin: 20px 0;">
+
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Default Layout Mode</label>
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: -5px; margin-bottom: 15px;">Controls how the player selects the UI layout when first loaded. Applies to all users.</p>
+            <select id="settingLayoutMode">
+                <option value="autodetect">🔍 Auto-Detect (use UA fingerprint)</option>
+                <option value="tv">📺 Always TV Mode</option>
+                <option value="browser">🌐 Always Browser Mode</option>
+            </select>
+
             <button onclick="saveSettings()" style="background: var(--success); margin-top: 10px;">Save Settings</button>
         </div>
 
