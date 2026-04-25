@@ -34,6 +34,52 @@ function getAuthHeaders() {
     };
 }
 
+// --- TOKEN REFRESH ---
+
+function parseJwtPayload(token) {
+    try {
+        return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    } catch (e) { return null; }
+}
+
+let _adminRefreshTimer = null;
+
+function scheduleAdminTokenRefresh(token) {
+    if (_adminRefreshTimer) clearTimeout(_adminRefreshTimer);
+    const payload = parseJwtPayload(token);
+    if (!payload || !payload.exp) return;
+    const delay = Math.max(0, (payload.exp * 1000) - (60 * 60 * 1000) - Date.now());
+    _adminRefreshTimer = setTimeout(silentAdminRefreshToken, delay);
+}
+
+async function silentAdminRefreshToken() {
+    const inLocal = !!localStorage.getItem('jwtToken');
+    const currentToken = localStorage.getItem('jwtToken') || sessionStorage.getItem('jwtToken');
+    if (!currentToken) return;
+    try {
+        const res = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (!res.ok) { window.location.href = '/'; return; }
+        const { token: newToken } = await res.json();
+        if (inLocal) localStorage.setItem('jwtToken', newToken);
+        else sessionStorage.setItem('jwtToken', newToken);
+        // Refresh the derived client key
+        const checkRes = await fetch('/api/auth/check', {
+            headers: { 'Authorization': `Bearer ${newToken}` }
+        });
+        if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            dynamicSecretKey = checkData.clientKey;
+        }
+        scheduleAdminTokenRefresh(newToken);
+    } catch (e) {
+        console.error('Admin token refresh failed:', e);
+    }
+}
+
+
 async function verifyAdmin() {
     const token = sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken');
     if (!token) return window.location.href = '/';
@@ -49,6 +95,7 @@ async function verifyAdmin() {
 
             initEditors(); // Initialize the code editors!
             loadData();
+            scheduleAdminTokenRefresh(token); // Keep the session alive
         } else if (res.status === 401 || res.status === 403) {
             localStorage.removeItem('jwtToken');
             sessionStorage.removeItem('jwtToken');

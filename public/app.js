@@ -23,6 +23,64 @@ const aspectRatios = [
     { label: 'Fill', fit: 'fill', ratio: 'auto' }
 ];
 
+// --- TOKEN REFRESH ---
+
+function parseJwtPayload(token) {
+    try {
+        return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    } catch (e) { return null; }
+}
+
+let _refreshTimer = null;
+
+function scheduleTokenRefresh(token) {
+    if (_refreshTimer) clearTimeout(_refreshTimer);
+
+    const payload = parseJwtPayload(token);
+    if (!payload || !payload.exp) return;
+
+    // Refresh 1 hour before the token expires
+    const refreshAt = (payload.exp * 1000) - (60 * 60 * 1000);
+    const delay = Math.max(0, refreshAt - Date.now());
+
+    _refreshTimer = setTimeout(silentRefreshToken, delay);
+}
+
+async function silentRefreshToken() {
+    const inLocal = !!localStorage.getItem('jwtToken');
+    const currentToken = localStorage.getItem('jwtToken') || sessionStorage.getItem('jwtToken');
+    if (!currentToken) return;
+
+    try {
+        const res = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+
+        if (!res.ok) { showLogin(); return; }
+
+        const { token: newToken } = await res.json();
+
+        // Store in the same place as the original
+        if (inLocal) localStorage.setItem('jwtToken', newToken);
+        else sessionStorage.setItem('jwtToken', newToken);
+
+        // Update the derived client key with the new token
+        const checkRes = await fetch('/api/auth/check', {
+            headers: { 'Authorization': `Bearer ${newToken}` }
+        });
+        if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            dynamicSecretKey = checkData.clientKey;
+        }
+
+        // Schedule the next refresh cycle
+        scheduleTokenRefresh(newToken);
+    } catch (e) {
+        console.error('Silent token refresh failed:', e);
+    }
+}
+
 async function verify() {
     // Phase 1: early UA-only detection — applies TV mode to the login screen
     // before any settings are fetched. No layoutMode override is available yet.
@@ -77,6 +135,9 @@ async function verify() {
             await loadPlaylists();
 
             toggleAppLoader(false);
+
+            // 4. Schedule silent token refresh — keeps the session alive without re-login
+            scheduleTokenRefresh(token);
         } else if (res.status === 401 || res.status === 403) {
             showLogin();
         } else {
