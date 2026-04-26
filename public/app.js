@@ -646,10 +646,11 @@ function updateNowPlayingEPG(isInitialLoad = false) {
 
     if (programInfo) {
         const oldTitle = programInfo.dataset.currentTitle || '';
-        const newTitle = program ? program.title : 'Live Stream';
+        const newTitle = program ? program.title : 'No Program Information';
 
         if (program) {
             programInfo.innerHTML = `<i class="fi fi-rr-broadcast" style="color:var(--primary);"></i> ${program.title}`;
+            programInfo.classList.remove('no-program');
             if (progressContainer) {
                 const now = new Date();
                 const pct = Math.min(Math.max(((now - program.start) / (program.stop - program.start)) * 100, 0), 100);
@@ -659,7 +660,8 @@ function updateNowPlayingEPG(isInitialLoad = false) {
                 progressContainer.style.display = 'block';
             }
         } else {
-            programInfo.innerText = 'Live Stream';
+            programInfo.innerText = 'No Program Information';
+            programInfo.classList.add('no-program');
             if (progressContainer) progressContainer.style.display = 'none';
         }
 

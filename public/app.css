@@ -586,6 +586,9 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        #nowPlayingProgram.no-program {
+            color: var(--text-dim);
+        }
 
         .program-progress-container {
             margin: 10px 0;
