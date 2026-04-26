@@ -231,8 +231,8 @@
             }
 
             .now-playing-logo {
-                width: 120px;
-                height: 120px;
+                width: 216px;
+                height: 216px;
                 border-radius: 20px;
             }
 
@@ -316,6 +316,82 @@
             }
         }
 
+        @media (min-width: 2560px) {
+            :root {
+                font-size: 22px;
+            }
+
+            body.tv-mode .now-playing-overlay {
+                max-width: 1200px;
+                padding: 40px 60px;
+                gap: 40px;
+                bottom: 80px;
+            }
+
+            body.tv-mode #nowPlayingName {
+                font-size: 2.2rem;
+            }
+
+            body.tv-mode #nowPlayingProgram {
+                font-size: 1.4rem;
+            }
+
+            body.tv-mode .now-playing-label {
+                font-size: 1.3rem;
+            }
+
+            body.tv-mode #nowPlayingCat {
+                font-size: 1.4rem;
+            }
+
+            body.tv-mode .resolution-badge {
+                font-size: 1rem;
+                padding: 4px 12px;
+            }
+
+            body.tv-mode .program-progress-container {
+                max-width: 900px;
+                margin: 35px 0;
+            }
+
+            body.tv-mode .channel-info-epg {
+                width: 320px;
+                min-width: 320px;
+                padding: 35px;
+            }
+
+            body.tv-mode .program-card-epg {
+                min-width: 450px;
+                padding: 35px;
+            }
+
+            body.tv-mode #customPlayerControls button {
+                padding: 12px 20px !important;
+                font-size: 1.1rem !important;
+            }
+
+            body.tv-mode #channelModal .modal-content {
+                width: 500px !important;
+            }
+
+            body.tv-mode #channelModal .channel-card {
+                padding: 20px 25px;
+            }
+
+            body.tv-mode #channelModal .channel-logo {
+                width: 80px;
+                height: 80px;
+            }
+
+            body.tv-mode #channelModal .channel-name {
+                font-size: 1.4rem;
+            }
+
+            body.tv-mode #channelModal .channel-program {
+                font-size: 1.1rem;
+            }
+        }
+
         @media (min-width: 3500px) {
             :root {
                 font-size: 26px;
@@ -330,7 +406,7 @@
         /* TV Mode specific scaling for 10-foot UI */
         body.tv-mode .now-playing-overlay {
             gap: 20px;
-            max-width: min(90vw, 900px);
+            max-width: min(95vw, 1100px);
             width: 100%;
             padding: 25px 40px;
             left: 0;
@@ -344,9 +420,9 @@
         }
 
         body.tv-mode .now-playing-logo {
-            width: 125px;
+            width: 225px;
             height: auto;
-            max-height: 80px;
+            max-height: 140px;
             border-radius: 0;
             background: none;
             padding: 0;
@@ -503,8 +579,8 @@
 
 
         .now-playing-logo {
-            width: 48px;
-            height: 48px;
+            width: 86px;
+            height: 86px;
             object-fit: contain;
             border-radius: 6px;
             flex-shrink: 0;
