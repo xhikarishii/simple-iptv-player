@@ -328,6 +328,11 @@
                 bottom: 80px;
             }
 
+            body.tv-mode .now-playing-logo {
+                width: 360px;
+                max-height: 220px;
+            }
+
             body.tv-mode #nowPlayingName {
                 font-size: 2.2rem;
             }
@@ -355,9 +360,14 @@
             }
 
             body.tv-mode .channel-info-epg {
-                width: 320px;
-                min-width: 320px;
-                padding: 35px;
+                width: 380px;
+                min-width: 380px;
+                padding: 40px;
+            }
+
+            body.tv-mode .channel-logo-epg {
+                width: 128px;
+                height: 128px;
             }
 
             body.tv-mode .program-card-epg {
@@ -366,12 +376,18 @@
             }
 
             body.tv-mode #customPlayerControls button {
-                padding: 12px 20px !important;
+                padding: 0.75rem 1.25rem !important;
                 font-size: 1.1rem !important;
             }
 
             body.tv-mode #channelModal .modal-content {
-                width: 500px !important;
+                width: 650px !important;
+                border-radius: 40px !important;
+                padding: 20px 0 !important;
+            }
+
+            body.tv-mode #channelModal {
+                padding: 80px;
             }
 
             body.tv-mode #channelModal .channel-card {
@@ -379,8 +395,8 @@
             }
 
             body.tv-mode #channelModal .channel-logo {
-                width: 80px;
-                height: 80px;
+                width: 128px;
+                height: 128px;
             }
 
             body.tv-mode #channelModal .channel-name {
@@ -388,6 +404,29 @@
             }
 
             body.tv-mode #channelModal .channel-program {
+                font-size: 1.1rem;
+            }
+
+            body.tv-mode .ch-overlay-arrow {
+                height: 5rem;
+                font-size: 3rem;
+            }
+
+            body.tv-mode #channelModal .ch-epg-icon {
+                font-size: 0.9rem;
+            }
+
+            .channel-logo {
+                width: 155px;
+                height: 155px;
+                border-radius: 15px;
+            }
+
+            .channel-name {
+                font-size: 1.5rem;
+            }
+
+            .channel-cat {
                 font-size: 1.1rem;
             }
         }
@@ -1026,20 +1065,24 @@
         }
 
         #channelModal {
-            align-items: flex-start;
+            align-items: center;
             justify-content: flex-end;
-            padding: 0;
+            padding: 40px;
+            background: transparent;
+            backdrop-filter: none;
         }
 
         #channelModal .modal-content {
             width: 360px !important;
             max-width: 100% !important;
-            height: 100vh !important;
+            height: auto !important;
             margin: 0 !important;
-            border-radius: 0 !important;
+            border-radius: 25px !important;
             background: rgba(15, 23, 42, 0.95) !important;
-            padding: 0 !important;
-            box-shadow: -10px 0 50px rgba(0, 0, 0, 0.5) !important;
+            padding: 10px 0 !important;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            overflow: hidden;
         }
 
         #channelModal .channel-card.focused {
@@ -1100,9 +1143,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 48px;
+            height: 3.5rem;
             color: rgba(255,255,255,0.35);
-            font-size: 1.4rem;
+            font-size: 2rem;
             cursor: pointer;
             transition: color 0.2s;
             user-select: none;
@@ -1450,8 +1493,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 40px;
-            height: 40px;
+            width: 2.5rem;
+            height: 2.5rem;
             padding: 0;
             background: rgba(255, 255, 255, 0.1);
             color: white;
@@ -1469,8 +1512,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            height: 40px;
-            padding: 0 14px;
+            height: 2.5rem;
+            padding: 0 1rem;
             gap: 7px;
             background: rgba(59, 130, 246, 0.2);
             color: white;
