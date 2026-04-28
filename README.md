@@ -110,19 +110,16 @@ Password: admin123
 
 ---
 
-## Recent Changes (v1.0.4)
+## Recent Changes (v1.0.5)
 
-A big round of TV mode improvements landed recently:
+This version brings major performance optimizations and a better big-screen experience:
 
-- Channel list is now a sidebar instead of a full-screen overlay
-- Full D-Pad keyboard navigation for TV mode (Up/Down = channels, Left/Right = controls/EPG, Enter = confirm)
-- Custom player controls replaced the Shaka UI — audio/subtitle track cycling with icon buttons
-- EPG is now navigable with the D-Pad
-- Stream loading is faster — buffer tuned for live IPTV, retries up to 5x before showing an error
-- "Remember me" option on the login page
-- HTTP-only proxy — HTTPS streams skip the proxy entirely
-- Improved Smart TV detection for devices with non-standard user agents
-- Various fixes around stale error messages when switching channels quickly
+- **Local Bundling**: All scripts and styles are now bundled locally (no more CDN dependencies).
+- **ABR Support**: Shaka Player now uses Adaptive Bitrate for smoother playback.
+- **Big Screen UI**: Improved scaling and larger elements for 4K and large TVs.
+- **Resolution Badge**: See the current stream quality (HD/SD/etc) in the overlay.
+- **Manual Mode Toggle**: Force TV or Desktop mode via user settings.
+- **Encryption Refactor**: More robust security for playlist data.
 
 See [`RELEASE_NOTES.md`](./RELEASE_NOTES.md) for the full breakdown.
 
