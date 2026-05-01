@@ -340,6 +340,7 @@ async function initApp() {
         player.addEventListener('trackschanged', populateTracks);
         // Update resolution badge whenever ABR switches quality mid-stream
         player.addEventListener('adaptation', updateResolutionBadge);
+        video.addEventListener('resize', updateResolutionBadge);
 
         video.addEventListener('play', () => document.getElementById('btnPlayPause').innerHTML = '<i class="fi fi-sr-pause"></i>');
         video.addEventListener('pause', () => document.getElementById('btnPlayPause').innerHTML = '<i class="fi fi-sr-play"></i>');
@@ -1330,11 +1331,17 @@ function getResolutionLabel(height) {
 
 function updateResolutionBadge() {
     const badge = document.getElementById('resBadge');
-    if (!badge || !player) return;
+    const video = document.getElementById('video');
+    if (!badge || !player || !video) return;
 
-    const variants = player.getVariantTracks();
-    const active = variants.find(t => t.active);
-    const height = active ? (active.height || active.originalVideoId) : null;
+    // Use the actual decoded video height from the element if available,
+    // otherwise fallback to the active track's metadata.
+    let height = video.videoHeight;
+    if (!height || height === 0) {
+        const active = player.getVariantTracks().find(t => t.active);
+        height = active ? active.height : null;
+    }
+
     const info = getResolutionLabel(height);
 
     if (info) {
