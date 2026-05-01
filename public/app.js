@@ -286,19 +286,11 @@ function getShakaConfiguration(profile) {
             config.abr.bandwidthUpgradeTarget = 0.90;
             break;
 
-        case 'highest': // Quality Optimization — Focus on highest resolution
-            config.streaming.bufferingGoal = 30;
-            config.streaming.rebufferingGoal = 10;
-            config.streaming.liveSync = {
-                enabled: true,
-                targetLatency: 15,
-                targetLatencyTolerance: 5,
-            };
-            config.manifest.defaultPresentationDelay = 10;
-            config.abr.defaultBandwidthEstimate = 100000000; // 100 Mbps start (Forces 4K/1080p immediately)
-            config.abr.switchInterval = 2; // Check frequently to stay on top
-            config.abr.bandwidthUpgradeTarget = 0.95; // Be aggressive about jumping up
-            config.abr.bandwidthDowngradeTarget = 0.50; // Be very stubborn about dropping quality
+        case 'highest': // Quality Optimization — Forced Highest Resolution
+            config.streaming.bufferingGoal = 60; // Max buffer for stability
+            config.streaming.rebufferingGoal = 20;
+            config.abr.enabled = false; // Disable ABR to prevent downscaling
+            config.manifest.defaultPresentationDelay = 20;
             break;
 
         case 'stability': // Stability Optimization for far/unstable servers
@@ -942,6 +934,19 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
 
             try {
                 await player.load(url);
+
+                // --- FORCED HIGHEST RESOLUTION ---
+                // If the user has selected the 'highest' profile, we disable ABR and manually
+                // select the variant with the highest bandwidth.
+                if (globalSettings.shakaConfig === 'highest') {
+                    const variantTracks = player.getVariantTracks();
+                    if (variantTracks.length > 0) {
+                        // Sort by bandwidth descending and select the top one
+                        variantTracks.sort((a, b) => b.bandwidth - a.bandwidth);
+                        player.selectVariantTrack(variantTracks[0], true);
+                    }
+                }
+
                 // Abort if user switched to a different channel while loading
                 if (myGeneration !== loadGeneration) return;
                 success = true;
