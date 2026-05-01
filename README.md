@@ -128,3 +128,25 @@ See [`RELEASE_NOTES.md`](./RELEASE_NOTES.md) for the full breakdown.
 ## Dev Note
 
 Anti-debugging is on by default. If DevTools makes the player lock up on you, comment out the `checkDevTools()` calls in the `.js` files and rebuild.
+
+---
+
+## Troubleshooting
+
+### Docker: "Failed to Setup IP tables"
+
+If you see an error like `Failed to Setup IP tables: Unable to enable ACCEPT OUTGOING rule`, it usually means your host's firewall (like `firewalld` or `ufw`) was restarted after Docker, which wiped Docker's custom iptables chains.
+
+**Fix:** Restart the Docker daemon on your host:
+```bash
+sudo systemctl restart docker
+```
+
+If you are using **Docker-in-Docker (DinD)**, ensure the parent container is running with `--privileged`.
+
+### Playback: "Unable to Connect"
+
+The player retries failed streams up to 5 times. If it still fails, check:
+1. **Mixed Content**: If your server is on HTTPS, the stream must also be HTTPS or routed through the built-in Nginx proxy.
+2. **CORS**: Many IPTV providers block direct browser access. The player automatically attempts to use a proxy, but the proxy must have access to the upstream URL.
+3. **DRM**: Encrypted streams require valid ClearKey/Widevine credentials and a secure context (HTTPS).

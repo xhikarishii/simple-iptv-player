@@ -543,20 +543,36 @@ function parseXmltvDate(dateStr) {
  * Maps Shaka Player error codes and categories to user-friendly messages.
  */
 function getFriendlyErrorMessage(error) {
-    if (error.category === shaka.util.Error.Category.NETWORK) {
-        return "Network Error: The stream could not be reached. Please check your internet connection or proxy settings.";
+    if (!error) return "An unknown error occurred.";
+
+    // Handle Shaka Player specific errors
+    if (error instanceof shaka.util.Error || (error.category !== undefined && error.code !== undefined)) {
+        if (error.category === shaka.util.Error.Category.NETWORK) {
+            if (error.code === 1001) return "Network Error: The stream URL is unreachable (HTTP 404/500) or proxy is down.";
+            if (error.code === 1002) return "Network Error: The request timed out. The server might be too slow.";
+            return "Network Error: The stream could not be reached. Please check your internet connection or proxy settings.";
+        }
+        if (error.category === shaka.util.Error.Category.DRM) {
+            if (error.code === 6001) return "Security Error: This encrypted stream requires a secure (HTTPS) connection to play.";
+            if (error.code === 6007) return "DRM Error: The hardware does not support the required protection level.";
+            return `DRM Error: The license for this encrypted stream could not be acquired. (Code: ${error.code})`;
+        }
+        if (error.category === shaka.util.Error.Category.MANIFEST) {
+            if (error.code === 4000) return "Format Error: The playlist manifest is empty or invalid.";
+            return "Format Error: The playlist manifest contains unsupported stream formats or is corrupted.";
+        }
+        if (error.category === shaka.util.Error.Category.STREAMING) {
+            return "Streaming Error: The connection was lost while segmenting the video data.";
+        }
+        if (error.category === shaka.util.Error.Category.PLAYER) {
+            if (error.code === 3016) return "Playback Error: The browser lacks the required decoders for this video format.";
+            return `Player Error: A critical internal error occurred. (Code: ${error.code})`;
+        }
+        return `Playback Error: ${error.message || 'An unexpected issue occurred.'} (Code: ${error.code})`;
     }
-    if (error.category === shaka.util.Error.Category.DRM) {
-        if (error.code === 6001) return "Security Error: This encrypted stream requires a secure (HTTPS) connection to play.";
-        return "DRM Error: The license for this encrypted stream could not be acquired.";
-    }
-    if (error.category === shaka.util.Error.Category.MANIFEST) {
-        return "Format Error: The playlist manifest is invalid or contains unsupported stream formats.";
-    }
-    if (error.category === shaka.util.Error.Category.STREAMING) {
-        return "Streaming Error: The connection was lost while segmenting the video data.";
-    }
-    return `Playback Error: An unexpected issue occurred. (Code: ${error.code})`;
+
+    // Handle generic Javascript errors
+    return error.message || "An unexpected playback error occurred.";
 }
 
 /**
@@ -926,16 +942,18 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
                 attempts++;
 
                 if (attempts >= MAX_RETRIES) {
+                    console.error("Stream load exhausted all retries:", e);
                     throw e; // Exhausted — surface the real error
                 }
 
                 // Show a non-alarming "connecting" message during retries
                 errorTitle.innerText = `Connecting\u2026 (${attempts}/${MAX_RETRIES})`;
-                errorDescription.innerText = 'Retrying stream, please wait.';
+                errorDescription.innerText = `Stream connection attempt failed. Retrying...`;
                 errorOverlay.style.display = 'flex';
-                document.querySelector('#videoErrorOverlay .btn-retry').style.display = 'none';
+                const retryBtn = document.querySelector('#videoErrorOverlay .btn-retry');
+                if (retryBtn) retryBtn.style.display = 'none';
 
-                await new Promise(r => setTimeout(r, 1500));
+                await new Promise(r => setTimeout(r, 2000)); // Slightly longer delay to give network/proxy time to recover
             }
         }
 
@@ -962,7 +980,7 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
 
         if (e.code !== shaka.util.Error.Code.LOAD_INTERRUPTED) {
             const retryBtn = document.querySelector('#videoErrorOverlay .btn-retry');
-            if (retryBtn) retryBtn.style.display = '';
+            if (retryBtn) retryBtn.style.display = 'inline-block';
             handlePlaybackError(e);
         }
     }
