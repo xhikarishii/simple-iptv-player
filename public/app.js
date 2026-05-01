@@ -362,11 +362,13 @@ async function initApp() {
 
             // 1. External URLs (The Mixed Content Fixer & UA Spoofing)
             const isExternal = (url.startsWith('http://') || url.startsWith('https://')) && !url.includes(window.location.host);
+            const isHostInsecure = window.location.protocol === 'http:';
 
             // We MUST use the proxy if:
             // a) It's HTTP (to avoid Mixed Content blocks on HTTPS sites)
-            // b) We have a custom User-Agent to spoof (browsers won't let us spoof UA directly on cross-origin requests)
-            const shouldProxy = url.startsWith('http://') || (isExternal && globalSettings.userAgent);
+            // b) We are on an HTTP host (to avoid CORS issues with HTTPS streams)
+            // c) We have a custom User-Agent to spoof (browsers won't let us spoof UA directly on cross-origin requests)
+            const shouldProxy = url.startsWith('http://') || (isExternal && (globalSettings.userAgent || isHostInsecure));
 
             if (shouldProxy && isExternal) {
                 // Save the upstream destination to fix broken relative paths later
@@ -903,6 +905,18 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
 
         // If another channel was selected during the delay, abort silently
         if (myGeneration !== loadGeneration) return;
+
+        // --- DRM SECURITY CHECK ---
+        // Browsers block the EME (Encrypted Media Extensions) API in insecure contexts.
+        // If the host is HTTP, DRM playback is technically impossible in most modern browsers.
+        const isDrm = encodedKeyStr && encodedKeyStr.trim().length > 0;
+        if (isDrm && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            console.warn("DRM playback detected in insecure context. This will likely fail.");
+            const error = new Error("DRM Requires HTTPS: Browsers block encrypted content on insecure hosts. Please access the player via HTTPS.");
+            error.category = shaka.util.Error.Category.DRM;
+            error.code = 6001; // INSECURE_CONTEXT
+            throw error;
+        }
 
         const keyString = encodedKeyStr ? decodeURIComponent(encodedKeyStr).trim() : null;
         if (keyString) {
