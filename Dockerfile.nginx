@@ -1,0 +1,12 @@
+FROM nginx:stable-alpine
+
+# Install bash and openssl for the setup script
+RUN apk add --no-cache bash openssl
+
+# Copy the setup script
+COPY scripts/setup-ssl.sh /usr/local/bin/setup-ssl.sh
+RUN chmod +x /usr/local/bin/setup-ssl.sh
+
+# Use a custom entrypoint to run the setup script before starting Nginx
+# This ensures certificates are generated in /etc/nginx/ssl if they don't exist
+ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/setup-ssl.sh /etc/nginx/ssl && exec nginx -g 'daemon off;'"]

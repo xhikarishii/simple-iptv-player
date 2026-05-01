@@ -144,18 +144,17 @@ sudo systemctl restart docker
 
 ### HTTPS: "Certificates are missing"
 
-If you enabled HTTPS but didn't provide certificates, Nginx will fail to start.
+The application is configured to use HTTPS by default.
 
-**Fix:**
+**Automatic Setup:**
+If you don't provide certificates, the Nginx container will **automatically generate** self-signed certificates in the `./ssl` directory upon startup. 
+
+**Manual Setup (Recommended for Production):**
 1. Create an `ssl` directory in the project root.
 2. Place your `fullchain.pem` and `privkey.pem` files inside.
-3. If you want to use **Self-Signed Certificates** for testing:
-   ```bash
-   mkdir -p ssl
-   openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ssl/privkey.pem -out ssl/fullchain.pem
-   ```
-   *Or use the provided script:* `bash scripts/setup-ssl.sh`
-4. Restart the containers: `docker-compose up -d`.
+3. Restart the containers: `docker-compose up -d --build`.
+
+*Note: If you use self-signed certificates, your browser will show a security warning. You must click "Advanced" and "Proceed" to access the player.*
 
 ### Playback: "Unable to Connect"
 

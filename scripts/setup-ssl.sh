@@ -1,25 +1,26 @@
 #!/bin/bash
 
-# Create the ssl directory if it doesn't exist
-mkdir -p ssl
+# Target directory (default to ./ssl or first argument)
+TARGET_DIR="${1:-ssl}"
+mkdir -p "$TARGET_DIR"
 
-# Check if certificates already exist
-if [ -f "ssl/fullchain.pem" ] && [ -f "ssl/privkey.pem" ]; then
-    echo "SSL certificates already exist in ./ssl/"
+# Check if certificates already exist in the target directory
+if [ -f "$TARGET_DIR/fullchain.pem" ] && [ -f "$TARGET_DIR/privkey.pem" ]; then
+    echo "SSL certificates already exist in $TARGET_DIR"
     exit 0
 fi
 
-echo "Generating self-signed SSL certificates..."
+echo "Generating self-signed SSL certificates in $TARGET_DIR..."
 
 # Generate self-signed certificate
+# Using -subj to avoid interactive prompts during docker build/start
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout ssl/privkey.pem \
-    -out ssl/fullchain.pem \
+    -keyout "$TARGET_DIR/privkey.pem" \
+    -out "$TARGET_DIR/fullchain.pem" \
     -subj "/C=US/ST=State/L=City/O=SimpleIPTV/OU=Dev/CN=localhost"
 
 if [ $? -eq 0 ]; then
-    echo "Success! Certificates generated in ./ssl/"
-    echo "You can now run: docker-compose up -d"
+    echo "Success! Certificates generated in $TARGET_DIR"
 else
     echo "Error: Failed to generate certificates."
     exit 1
