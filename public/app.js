@@ -303,16 +303,18 @@ function getShakaConfiguration(profile) {
             config.abr.bandwidthDowngradeTarget = 0.98;
             break;
 
-        case 'stability': // Stability Optimization + Conservative ABR
-            config.streaming.bufferingGoal = 30;
-            config.streaming.rebufferingGoal = 10;
+        case 'stability': // Stability Optimization for far/unstable servers
+            config.streaming.bufferingGoal = 45; // 45 seconds of buffer
+            config.streaming.rebufferingGoal = 15;
             config.streaming.liveSync = { enabled: false };
-            config.streaming.retryParameters.maxAttempts = 10;
-            config.streaming.retryParameters.timeout = 25000;
-            config.manifest.retryParameters.maxAttempts = 10;
-            config.manifest.retryParameters.timeout = 25000;
-            config.abr.bandwidthDowngradeTarget = 0.95;
-            config.manifest.defaultPresentationDelay = 10;
+            config.streaming.retryParameters.maxAttempts = 15;
+            config.streaming.retryParameters.timeout = 30000;
+            config.manifest.retryParameters.maxAttempts = 15;
+            config.manifest.retryParameters.timeout = 30000;
+            config.abr.defaultBandwidthEstimate = 500000; // Start at 500kbps
+            config.abr.bandwidthUpgradeTarget = 0.70; // Be very careful about upgrading
+            config.abr.bandwidthDowngradeTarget = 0.98; // Drop fast if speed dips
+            config.manifest.defaultPresentationDelay = 15;
             break;
 
         case 'auto':
