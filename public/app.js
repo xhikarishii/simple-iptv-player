@@ -219,6 +219,119 @@ async function submitLogin() {
     }
 }
 
+/**
+ * Returns a Shaka Player configuration object optimized for the selected profile.
+ */
+function getShakaConfiguration(profile) {
+    const config = {
+        streaming: {
+            jumpLargeGaps: true,
+            smallGapLimit: 0.5,
+            jumpSmallGaps: true,
+            durationBackoff: 1,
+            stallEnabled: true,
+            stallThreshold: 0.3,
+            stallSkip: 0.1,
+            lowLatencyMode: false,
+            inaccurateManifestTolerance: 10,
+            retryParameters: {
+                maxAttempts: 4,
+                baseDelay: 500,
+                backoffFactor: 1.3,
+                fuzzFactor: 0.3,
+                timeout: 10000,
+            }
+        },
+        manifest: {
+            retryParameters: {
+                maxAttempts: 4,
+                baseDelay: 300,
+                backoffFactor: 1.3,
+                fuzzFactor: 0.3,
+                timeout: 10000,
+            },
+            ignoreDrmInfo: false,
+            defaultPresentationDelay: 2,
+            dash: {
+                ignoreMinBufferTime: true,
+                autoCorrectDrift: true,
+                ignoreSuggestedPresentationDelay: true,
+                enableFastSwitching: true,
+            }
+        },
+        abr: {
+            enabled: true,
+            defaultBandwidthEstimate: 1000000,
+            bandwidthUpgradeTarget: 0.85,
+            bandwidthDowngradeTarget: 0.90,
+            switchInterval: 3,
+            restrictions: { minBandwidth: 0 }
+        }
+    };
+
+    switch (profile) {
+        case 'adaptive': // Low Latency + Fast ABR
+            config.streaming.bufferingGoal = 2;
+            config.streaming.rebufferingGoal = 0.5;
+            config.streaming.liveSync = {
+                enabled: true,
+                targetLatency: 3,
+                targetLatencyTolerance: 0.5,
+                maxPlaybackRate: 1.1,
+                minPlaybackRate: 0.95,
+            };
+            config.streaming.retryParameters.timeout = 5000;
+            config.manifest.defaultPresentationDelay = 1.5;
+            config.abr.switchInterval = 1;
+            config.abr.bandwidthUpgradeTarget = 0.90;
+            break;
+
+        case 'highest': // Quality Optimization + Highest Quality ABR
+            config.streaming.bufferingGoal = 15;
+            config.streaming.rebufferingGoal = 5;
+            config.streaming.liveSync = {
+                enabled: true,
+                targetLatency: 10,
+                targetLatencyTolerance: 2,
+                maxPlaybackRate: 1.05,
+                minPlaybackRate: 0.95,
+            };
+            config.manifest.defaultPresentationDelay = 5;
+            config.abr.defaultBandwidthEstimate = 20000000; // 20 Mbps start
+            config.abr.switchInterval = 5;
+            config.abr.bandwidthUpgradeTarget = 0.70;
+            config.abr.bandwidthDowngradeTarget = 0.98;
+            break;
+
+        case 'stability': // Stability Optimization + Conservative ABR
+            config.streaming.bufferingGoal = 30;
+            config.streaming.rebufferingGoal = 10;
+            config.streaming.liveSync = { enabled: false };
+            config.streaming.retryParameters.maxAttempts = 10;
+            config.streaming.retryParameters.timeout = 25000;
+            config.manifest.retryParameters.maxAttempts = 10;
+            config.manifest.retryParameters.timeout = 25000;
+            config.abr.bandwidthDowngradeTarget = 0.95;
+            config.manifest.defaultPresentationDelay = 10;
+            break;
+
+        case 'auto':
+        default: // Balanced
+            config.streaming.bufferingGoal = 6;
+            config.streaming.rebufferingGoal = 2;
+            config.streaming.liveSync = {
+                enabled: true,
+                targetLatency: 5,
+                targetLatencyTolerance: 1.5,
+                maxPlaybackRate: 1.1,
+                minPlaybackRate: 0.9,
+            };
+            break;
+    }
+
+    return config;
+}
+
 async function initApp() {
     shaka.polyfill.installAll();
     if (shaka.Player.isBrowserSupported()) {
@@ -228,90 +341,9 @@ async function initApp() {
         // Apply saved aspect ratio immediately
         applyAspectRatio();
 
-        // Aggressive low-latency configuration — minimizes delay to live edge
-        player.configure({
-            streaming: {
-                // --- Buffer: as small as safely possible ---
-                bufferingGoal: 2,           // Only pre-buffer 2s ahead of playback head
-                rebufferingGoal: 0.25,      // Resume after just 0.25s — near-instant recovery
-                bufferBehind: 5,            // Keep only 5s of back-buffer (saves memory)
-
-                // --- Startup & Gap Handling ---
-                jumpLargeGaps: true,        // Auto-skip timeline gaps in live streams
-                smallGapLimit: 0.5,         // Treat gaps <0.5s as small and jump them
-                jumpSmallGaps: true,        // Also jump those small gaps automatically
-                durationBackoff: 1,
-
-                // --- Stall Detection: be aggressive ---
-                stallEnabled: true,
-                stallThreshold: 0.3,        // Call a stall after 0.3s of no progress
-                stallSkip: 0.1,             // Skip 0.1s forward to break the stall
-
-                // --- Live Stream: hug the live edge ---
-                liveSync: {
-                    enabled: true,
-                    targetLatency: 3,       // Target 3s behind the live edge
-                    targetLatencyTolerance: 1, // ±1s tolerance before speed adjustment
-                    maxPlaybackRate: 1.1,   // Speed up by 10% max to catch the live edge
-                    minPlaybackRate: 0.9,   // Slow down by 10% max to avoid getting too close
-                },
-
-                // --- Retries: fail fast, retry fast ---
-                retryParameters: {
-                    maxAttempts: 4,
-                    baseDelay: 500,         // Start retrying sooner (was 1000ms)
-                    backoffFactor: 1.3,     // Gentler backoff (was 1.5)
-                    fuzzFactor: 0.3,
-                    timeout: 8000,          // Fail a stalled request after 8s (was 15s)
-                },
-
-                // Standard CDN compatibility
-                lowLatencyMode: false,
-                inaccurateManifestTolerance: 10,
-            },
-
-            manifest: {
-                retryParameters: {
-                    maxAttempts: 4,
-                    baseDelay: 300,
-                    backoffFactor: 1.3,
-                    fuzzFactor: 0.3,
-                    timeout: 8000,
-                },
-                ignoreDrmInfo: false,
-                defaultPresentationDelay: 2, // Start only 2s behind the live edge (was 3s)
-
-                // --- DASH-specific manifest tuning ---
-                dash: {
-                    // Ignore manifest-advertised suggested delays; we control latency ourselves
-                    ignoreMinBufferTime: true,
-
-                    // Auto-correct clock drift between client and DASH server using UTCTiming
-                    // elements in the manifest — critical for accurate live edge positioning
-                    autoCorrectDrift: true,
-
-                    // Tolerate imperfect segment duration reporting (common in live IPTV encoders)
-                    ignoreSuggestedPresentationDelay: true,
-
-                    // Parse availability window from the manifest so Shaka knows
-                    // exactly which segments are accessible on the CDN
-                    enableFastSwitching: true,
-                },
-            },
-
-            abr: {
-                enabled: true,
-                // Start at the lowest available quality for instant playback,
-                // then ABR ramps up quality as bandwidth is proven.
-                defaultBandwidthEstimate: 200000, // Assume only 200 Kbps at cold start
-                bandwidthUpgradeTarget: 0.80,     // Upgrade when using <80% of bandwidth
-                bandwidthDowngradeTarget: 0.90,   // Drop quality quickly at >90% saturation
-                switchInterval: 3,                // Re-evaluate quality every 3s
-                restrictions: {
-                    minBandwidth: 0,              // No floor — allow the lowest quality tier
-                },
-            },
-        });
+        // Apply dynamic configuration based on global settings
+        const shakaProfile = globalSettings.shakaConfig || 'auto';
+        player.configure(getShakaConfiguration(shakaProfile));
 
         player.addEventListener('trackschanged', populateTracks);
         // Update resolution badge whenever ABR switches quality mid-stream
@@ -1044,6 +1076,22 @@ function toggleTvMode(force) {
     document.body.classList.toggle('tv-mode', isTv);
     const btn = document.getElementById('tvModeBtn');
     if (btn) btn.innerText = isTv ? 'Exit TV Mode' : 'TV Mode';
+
+    // Update local state for consistency
+    globalSettings.layoutMode = isTv ? 'tv' : 'browser';
+
+    // Persist setting to user profile
+    const token = sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken');
+    if (token) {
+        fetch('/api/settings/user', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ layoutMode: globalSettings.layoutMode })
+        }).catch(err => console.error('Failed to save TV mode preference:', err));
+    }
 
     // Attempt to unmute automatically when entering TV mode
     if (isTv) unmuteVideo();

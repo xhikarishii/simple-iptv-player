@@ -105,6 +105,7 @@ db.serialize(() => {
     db.run(`ALTER TABLE playlists ADD COLUMN epg TEXT DEFAULT ''`, (err) => {});
     db.run(`ALTER TABLE playlists ADD COLUMN sharedWith TEXT DEFAULT '[]'`, (err) => {});
     db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
+    db.run(`CREATE TABLE IF NOT EXISTS user_settings (userId INTEGER, key TEXT, value TEXT, PRIMARY KEY (userId, key))`);
 
     db.get("SELECT count(*) as count FROM users", (err, row) => {
         if (row.count === 0) {
@@ -116,6 +117,18 @@ db.serialize(() => {
     db.get("SELECT value FROM settings WHERE key = 'userAgent'", (err, row) => {
         if (!row) {
             db.run(`INSERT INTO settings (key, value) VALUES ('userAgent', 'AppleCoreMedia/1.0.0.19K362 (Apple TV; U; CPU OS 15_4 like Mac OS X; en_us)')`);
+        }
+    });
+
+    db.get("SELECT value FROM settings WHERE key = 'shakaConfig'", (err, row) => {
+        if (!row) {
+            db.run(`INSERT INTO settings (key, value) VALUES ('shakaConfig', 'auto')`);
+        }
+    });
+
+    db.get("SELECT value FROM settings WHERE key = 'abrConfig'", (err, row) => {
+        if (!row) {
+            db.run(`INSERT INTO settings (key, value) VALUES ('abrConfig', 'auto')`);
         }
     });
 });
@@ -255,11 +268,17 @@ app.delete('/api/playlists/:id', authenticateToken, requireAdmin, (req, res) => 
 // --- SETTINGS ---
 
 app.get('/api/settings', authenticateToken, (req, res) => {
-    db.all("SELECT * FROM settings", (err, rows) => {
+    db.all("SELECT * FROM settings", (err, globalRows) => {
         if (err) return res.status(500).json({ error: err.message });
-        const settings = {};
-        rows.forEach(r => settings[r.key] = r.value);
-        res.json(settings);
+        
+        db.all("SELECT * FROM user_settings WHERE userId = ?", [req.user.id], (err, userRows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            
+            const settings = {};
+            globalRows.forEach(r => settings[r.key] = r.value);
+            userRows.forEach(r => settings[r.key] = r.value); // User settings override global
+            res.json(settings);
+        });
     });
 });
 
@@ -272,6 +291,24 @@ app.post('/api/settings', authenticateToken, requireAdmin, (req, res) => {
     let count = 0;
     keys.forEach(key => {
         stmt.run(key, settings[key], (err) => {
+            count++;
+            if (count === keys.length) {
+                stmt.finalize(() => res.sendStatus(200));
+            }
+        });
+    });
+});
+
+app.post('/api/settings/user', authenticateToken, (req, res) => {
+    const settings = req.body;
+    const userId = req.user.id;
+    const stmt = db.prepare("INSERT OR REPLACE INTO user_settings (userId, key, value) VALUES (?, ?, ?)");
+    const keys = Object.keys(settings);
+    if (keys.length === 0) return res.sendStatus(200);
+
+    let count = 0;
+    keys.forEach(key => {
+        stmt.run(userId, key, settings[key], (err) => {
             count++;
             if (count === keys.length) {
                 stmt.finalize(() => res.sendStatus(200));

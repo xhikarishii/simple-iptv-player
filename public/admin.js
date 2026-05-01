@@ -519,6 +519,12 @@ async function loadSettings() {
     if (settings.layoutMode && layoutSelect) {
         layoutSelect.value = settings.layoutMode;
     }
+
+    // Shaka Config
+    const shakaSelect = document.getElementById('settingShakaConfig');
+    if (settings.shakaConfig && shakaSelect) {
+        shakaSelect.value = settings.shakaConfig;
+    }
 }
 
 function handleUADropdownChange() {
@@ -531,16 +537,18 @@ async function saveSettings() {
     const uaSelect = document.getElementById('settingUserAgent');
     const customUA = document.getElementById('customUserAgent').value;
     const layoutSelect = document.getElementById('settingLayoutMode');
+    const shakaSelect = document.getElementById('settingShakaConfig');
     
     const userAgent = uaSelect.value === 'custom' ? customUA : uaSelect.value;
     const layoutMode = layoutSelect ? layoutSelect.value : 'autodetect';
+    const shakaConfig = shakaSelect ? shakaSelect.value : 'auto';
     
     if (!userAgent) return alert('User-Agent cannot be empty');
 
     const res = await fetch('/api/settings', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ userAgent, layoutMode })
+        body: JSON.stringify({ userAgent, layoutMode, shakaConfig })
     });
 
     if (res.ok) {

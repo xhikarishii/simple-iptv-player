@@ -59,6 +59,17 @@
                 <option value="browser">🌐 Always Browser Mode</option>
             </select>
 
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.07); margin: 20px 0;">
+
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Player Profile</label>
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: -5px; margin-bottom: 15px;">Choose a pre-configured profile to optimize buffering, latency, and quality strategy.</p>
+            <select id="settingShakaConfig">
+                <option value="auto">Auto (Balanced)</option>
+                <option value="adaptive">Adaptive (Low Latency / Fast Sync)</option>
+                <option value="highest">Highest Quality (Prioritize Resolution)</option>
+                <option value="stability">Stability (Deep Buffer)</option>
+            </select>
+
             <button onclick="saveSettings()" style="background: var(--success); margin-top: 10px;">Save Settings</button>
         </div>
 
