@@ -286,21 +286,19 @@ function getShakaConfiguration(profile) {
             config.abr.bandwidthUpgradeTarget = 0.90;
             break;
 
-        case 'highest': // Quality Optimization + Highest Quality ABR
-            config.streaming.bufferingGoal = 15;
-            config.streaming.rebufferingGoal = 5;
+        case 'highest': // Quality Optimization — Focus on highest resolution
+            config.streaming.bufferingGoal = 30;
+            config.streaming.rebufferingGoal = 10;
             config.streaming.liveSync = {
                 enabled: true,
-                targetLatency: 10,
-                targetLatencyTolerance: 2,
-                maxPlaybackRate: 1.05,
-                minPlaybackRate: 0.95,
+                targetLatency: 15,
+                targetLatencyTolerance: 5,
             };
-            config.manifest.defaultPresentationDelay = 5;
-            config.abr.defaultBandwidthEstimate = 20000000; // 20 Mbps start
-            config.abr.switchInterval = 5;
-            config.abr.bandwidthUpgradeTarget = 0.70;
-            config.abr.bandwidthDowngradeTarget = 0.98;
+            config.manifest.defaultPresentationDelay = 10;
+            config.abr.defaultBandwidthEstimate = 100000000; // 100 Mbps start (Forces 4K/1080p immediately)
+            config.abr.switchInterval = 2; // Check frequently to stay on top
+            config.abr.bandwidthUpgradeTarget = 0.95; // Be aggressive about jumping up
+            config.abr.bandwidthDowngradeTarget = 0.50; // Be very stubborn about dropping quality
             break;
 
         case 'stability': // Stability Optimization for far/unstable servers
