@@ -950,6 +950,14 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
                 // Abort if user switched to a different channel while loading
                 if (myGeneration !== loadGeneration) return;
                 success = true;
+
+                // --- INITIAL BUFFER DELAY ---
+                // For the 'highest' quality profile, we wait a few seconds before starting
+                // playback to ensure a healthy initial buffer is established.
+                if (globalSettings.shakaConfig === 'highest') {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                }
+
                 errorOverlay.style.display = 'none';
             } catch (e) {
                 // A new channel was loaded — this load was cancelled intentionally
