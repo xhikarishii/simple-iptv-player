@@ -287,10 +287,10 @@ function getShakaConfiguration(profile) {
             break;
 
         case 'highest': // Quality Optimization — Forced Highest Resolution
-            config.streaming.bufferingGoal = 120; // 2 minutes of buffer
-            config.streaming.rebufferingGoal = 30;
+            config.streaming.bufferingGoal = 60; // Max buffer for stability
+            config.streaming.rebufferingGoal = 20;
             config.abr.enabled = false; // Disable ABR to prevent downscaling
-            config.manifest.defaultPresentationDelay = 30;
+            config.manifest.defaultPresentationDelay = 20;
             break;
 
         case 'stability': // Stability Optimization for far/unstable servers
