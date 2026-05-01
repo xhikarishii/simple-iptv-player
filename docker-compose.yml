@@ -16,8 +16,10 @@ services:
     container_name: iptv-nginx
     ports:
       - "8587:80"
+      - "8588:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       - iptv-app
     restart: unless-stopped

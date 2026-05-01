@@ -142,7 +142,20 @@ If you see an error like `Failed to Setup IP tables: Unable to enable ACCEPT OUT
 sudo systemctl restart docker
 ```
 
-If you are using **Docker-in-Docker (DinD)**, ensure the parent container is running with `--privileged`.
+### HTTPS: "Certificates are missing"
+
+If you enabled HTTPS but didn't provide certificates, Nginx will fail to start.
+
+**Fix:**
+1. Create an `ssl` directory in the project root.
+2. Place your `fullchain.pem` and `privkey.pem` files inside.
+3. If you want to use **Self-Signed Certificates** for testing:
+   ```bash
+   mkdir -p ssl
+   openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ssl/privkey.pem -out ssl/fullchain.pem
+   ```
+   *Or use the provided script:* `bash scripts/setup-ssl.sh`
+4. Restart the containers: `docker-compose up -d`.
 
 ### Playback: "Unable to Connect"
 
