@@ -117,6 +117,11 @@ async function verify() {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 globalSettings = await settingsRes.json();
+
+                // IMMEDIATELY enforce security policies before proceeding
+                if (globalSettings.debugMode !== 'true') {
+                    if (checkDevTools()) return; // checkDevTools handles triggerSecurityViolation
+                }
             } catch (e) {
                 console.error("Error loading settings:", e);
             }

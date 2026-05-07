@@ -93,6 +93,9 @@ async function verifyAdmin() {
             if (data.role !== 'admin') return window.location.href = '/';
             dynamicSecretKey = data.clientKey;
 
+            // Enforce security policies before loading data
+            if (await applySecurityPolicies()) return;
+
             initEditors(); // Initialize the code editors!
             loadData();
             scheduleAdminTokenRefresh(token); // Keep the session alive
@@ -593,10 +596,32 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- ANTI-DEBUGGING SAFEGUARDS ---
+function triggerSecurityViolation() {
+    document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20vh;'>Security Violation: Debugging Tools Prohibited</h2>";
+    dynamicSecretKey = null;
+    globalUsers = [];
+    globalPlaylists = [];
+}
+
+function checkDevTools(debugMode) {
+    if (debugMode === 'true') return false;
+    const before = new Date().getTime();
+    debugger;
+    if (new Date().getTime() - before > 200) {
+        triggerSecurityViolation();
+        return true;
+    }
+    return false;
+}
+
 async function applySecurityPolicies() {
     const res = await fetch('/api/settings', { headers: getAuthHeaders() });
     const settings = await res.json();
-    if (settings.debugMode === 'true') return;
+    
+    if (settings.debugMode === 'true') return false;
+
+    // Initial check
+    if (checkDevTools('false')) return true;
 
     document.addEventListener('contextmenu', event => event.preventDefault());
     document.addEventListener('keydown', (e) => {
@@ -606,13 +631,6 @@ async function applySecurityPolicies() {
         }
     });
 
-    setInterval(() => {
-        const before = new Date().getTime();
-        debugger;
-        if (new Date().getTime() - before > 100) {
-            document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20vh;'>Security Violation</h2>";
-            dynamicSecretKey = null;
-        }
-    }, 1000);
+    setInterval(() => checkDevTools('false'), 1000);
+    return false;
 }
-applySecurityPolicies();
