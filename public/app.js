@@ -1836,9 +1836,17 @@ function checkDevTools() {
     // Bypass debugger check for TV Mode to prevent false positives on slow hardware
     if (document.body.classList.contains('tv-mode')) return false;
 
-    const before = new Date().getTime();
+    // Detect docked DevTools by checking window dimension differences
+    const threshold = 160;
+    const widthDiff = window.outerWidth - window.innerWidth > threshold;
+    const heightDiff = window.outerHeight - window.innerHeight > threshold;
+
+    // Detect undocked DevTools using debugger timing check
+    const start = performance.now();
     debugger;
-    if (new Date().getTime() - before > 500) { // Increased threshold for stability
+    const end = performance.now();
+
+    if (widthDiff || heightDiff || (end - start > 100)) {
         triggerSecurityViolation();
         return true;
     }

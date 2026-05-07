@@ -605,9 +605,18 @@ function triggerSecurityViolation() {
 
 function checkDevTools(debugMode) {
     if (debugMode === 'true') return false;
-    const before = new Date().getTime();
+
+    // Detect docked DevTools by checking window dimension differences
+    const threshold = 160;
+    const widthDiff = window.outerWidth - window.innerWidth > threshold;
+    const heightDiff = window.outerHeight - window.innerHeight > threshold;
+
+    // Detect undocked DevTools using debugger timing check
+    const start = performance.now();
     debugger;
-    if (new Date().getTime() - before > 200) {
+    const end = performance.now();
+
+    if (widthDiff || heightDiff || (end - start > 100)) {
         triggerSecurityViolation();
         return true;
     }
@@ -621,7 +630,7 @@ async function applySecurityPolicies() {
     if (settings.debugMode === 'true') return false;
 
     // Initial check
-    if (checkDevTools('false')) return true;
+    if (checkDevTools(settings.debugMode)) return true;
 
     document.addEventListener('contextmenu', event => event.preventDefault());
     document.addEventListener('keydown', (e) => {
@@ -631,6 +640,6 @@ async function applySecurityPolicies() {
         }
     });
 
-    setInterval(() => checkDevTools('false'), 1000);
+    setInterval(() => checkDevTools(settings.debugMode), 1000);
     return false;
 }
