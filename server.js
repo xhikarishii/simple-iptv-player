@@ -131,6 +131,12 @@ db.serialize(() => {
             db.run(`INSERT INTO settings (key, value) VALUES ('abrConfig', 'auto')`);
         }
     });
+
+    db.get("SELECT value FROM settings WHERE key = 'proxyHttps'", (err, row) => {
+        if (!row) {
+            db.run(`INSERT INTO settings (key, value) VALUES ('proxyHttps', 'true')`);
+        }
+    });
 });
 
 // --- AUTH ---

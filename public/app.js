@@ -361,7 +361,8 @@ async function initApp() {
             // a) It's HTTP (to avoid Mixed Content blocks on HTTPS sites)
             // b) We are on an HTTP host (to avoid CORS issues with HTTPS streams)
             // c) We have a custom User-Agent to spoof (browsers won't let us spoof UA directly on cross-origin requests)
-            const shouldProxy = url.startsWith('http://') || (isExternal && (globalSettings.userAgent || isHostInsecure));
+            const proxyHttps = globalSettings.proxyHttps !== 'false'; // Default to true
+            const shouldProxy = url.startsWith('http://') || (url.startsWith('https://') && proxyHttps && isExternal && (globalSettings.userAgent || isHostInsecure));
 
             if (shouldProxy && isExternal) {
                 // Save the upstream destination to fix broken relative paths later

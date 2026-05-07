@@ -525,6 +525,21 @@ async function loadSettings() {
     if (settings.shakaConfig && shakaSelect) {
         shakaSelect.value = settings.shakaConfig;
     }
+
+    // Proxy HTTPS
+    const proxyHttpsSelect = document.getElementById('settingProxyHttps');
+    if (settings.proxyHttps && proxyHttpsSelect) {
+        proxyHttpsSelect.value = settings.proxyHttps;
+        toggleProxyHttpsNotice();
+    }
+}
+
+function toggleProxyHttpsNotice() {
+    const select = document.getElementById('settingProxyHttps');
+    const notice = document.getElementById('proxyHttpsNotice');
+    if (select && notice) {
+        notice.style.display = select.value === 'false' ? 'block' : 'none';
+    }
 }
 
 function handleUADropdownChange() {
@@ -538,17 +553,19 @@ async function saveSettings() {
     const customUA = document.getElementById('customUserAgent').value;
     const layoutSelect = document.getElementById('settingLayoutMode');
     const shakaSelect = document.getElementById('settingShakaConfig');
+    const proxyHttpsSelect = document.getElementById('settingProxyHttps');
     
     const userAgent = uaSelect.value === 'custom' ? customUA : uaSelect.value;
     const layoutMode = layoutSelect ? layoutSelect.value : 'autodetect';
     const shakaConfig = shakaSelect ? shakaSelect.value : 'auto';
+    const proxyHttps = proxyHttpsSelect ? proxyHttpsSelect.value : 'true';
     
     if (!userAgent) return alert('User-Agent cannot be empty');
 
     const res = await fetch('/api/settings', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ userAgent, layoutMode, shakaConfig })
+        body: JSON.stringify({ userAgent, layoutMode, shakaConfig, proxyHttps })
     });
 
     if (res.ok) {
@@ -558,7 +575,15 @@ async function saveSettings() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', verifyAdmin);
+document.addEventListener('DOMContentLoaded', () => {
+    verifyAdmin();
+    
+    // Add listener for Proxy HTTPS setting to show/hide notice
+    const proxyHttpsSelect = document.getElementById('settingProxyHttps');
+    if (proxyHttpsSelect) {
+        proxyHttpsSelect.addEventListener('change', toggleProxyHttpsNotice);
+    }
+});
 
 // --- ANTI-DEBUGGING SAFEGUARDS ---
 document.addEventListener('contextmenu', event => event.preventDefault());
