@@ -528,15 +528,15 @@ async function loadSettings() {
 
     // Proxy HTTPS
     const proxyHttpsSelect = document.getElementById('settingProxyHttps');
-    if (settings.proxyHttps && proxyHttpsSelect) {
-        proxyHttpsSelect.value = settings.proxyHttps;
+    if (proxyHttpsSelect && settings.hasOwnProperty('proxyHttps')) {
+        proxyHttpsSelect.value = String(settings.proxyHttps);
         toggleProxyHttpsNotice();
     }
 
     // Debug Mode
     const debugSelect = document.getElementById('settingDebugMode');
-    if (settings.debugMode && debugSelect) {
-        debugSelect.value = settings.debugMode;
+    if (debugSelect && settings.hasOwnProperty('debugMode')) {
+        debugSelect.value = String(settings.debugMode);
     }
 }
 
