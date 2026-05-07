@@ -137,6 +137,12 @@ db.serialize(() => {
             db.run(`INSERT INTO settings (key, value) VALUES ('proxyHttps', 'true')`);
         }
     });
+
+    db.get("SELECT value FROM settings WHERE key = 'debugMode'", (err, row) => {
+        if (!row) {
+            db.run(`INSERT INTO settings (key, value) VALUES ('debugMode', 'false')`);
+        }
+    });
 });
 
 // --- AUTH ---

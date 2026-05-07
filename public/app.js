@@ -1804,8 +1804,11 @@ function toggleHeaderMenu() {
 verify();
 
 // --- ANTI-DEBUGGING SAFEGUARDS ---
-document.addEventListener('contextmenu', event => event.preventDefault());
+document.addEventListener('contextmenu', event => {
+    if (globalSettings.debugMode !== 'true') event.preventDefault();
+});
 document.addEventListener('keydown', (e) => {
+    if (globalSettings.debugMode === 'true') return;
     if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || (e.ctrlKey && e.keyCode === 85)) {
         e.preventDefault();
         return false;
@@ -1820,6 +1823,9 @@ function triggerSecurityViolation() {
 }
 
 function checkDevTools() {
+    // Bypass debugger check if debug mode is enabled
+    if (globalSettings.debugMode === 'true') return false;
+
     // Bypass debugger check for TV Mode to prevent false positives on slow hardware
     if (document.body.classList.contains('tv-mode')) return false;
 

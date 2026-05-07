@@ -75,12 +75,21 @@
             <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Proxy HTTPS Streams</label>
             <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: -5px; margin-bottom: 15px;">If enabled, HTTPS streams will be routed through the server. If disabled, they will be fetched directly.</p>
             <select id="settingProxyHttps">
-                <option value="true">✅ Enabled (Default)</option>
-                <option value="false">❌ Disabled (Direct Play)</option>
+                <option value="true">Enabled (Default)</option>
+                <option value="false">Disabled (Direct Play)</option>
             </select>
             <p id="proxyHttpsNotice" style="font-size: 0.7rem; color: #f59e0b; margin-top: 8px; display: none;">
                 ⚠️ <strong>Note:</strong> Disabling this will prevent custom User-Agent spoofing from working on HTTPS streams, which may cause some servers to reject the connection.
             </p>
+
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.07); margin: 20px 0;">
+
+            <label style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Debug Mode</label>
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: -5px; margin-bottom: 15px;">If enabled, browser developer tools and right-click menus will be allowed. <strong>NOT RECOMMENDED FOR PRODUCTION.</strong></p>
+            <select id="settingDebugMode">
+                <option value="false">Disabled</option>
+                <option value="true">Enabled</option>
+            </select>
 
             <button onclick="saveSettings()" style="background: var(--success); margin-top: 20px;">Save Settings</button>
         </div>

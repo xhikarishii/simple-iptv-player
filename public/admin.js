@@ -532,6 +532,12 @@ async function loadSettings() {
         proxyHttpsSelect.value = settings.proxyHttps;
         toggleProxyHttpsNotice();
     }
+
+    // Debug Mode
+    const debugSelect = document.getElementById('settingDebugMode');
+    if (settings.debugMode && debugSelect) {
+        debugSelect.value = settings.debugMode;
+    }
 }
 
 function toggleProxyHttpsNotice() {
@@ -554,18 +560,20 @@ async function saveSettings() {
     const layoutSelect = document.getElementById('settingLayoutMode');
     const shakaSelect = document.getElementById('settingShakaConfig');
     const proxyHttpsSelect = document.getElementById('settingProxyHttps');
+    const debugSelect = document.getElementById('settingDebugMode');
     
     const userAgent = uaSelect.value === 'custom' ? customUA : uaSelect.value;
     const layoutMode = layoutSelect ? layoutSelect.value : 'autodetect';
     const shakaConfig = shakaSelect ? shakaSelect.value : 'auto';
     const proxyHttps = proxyHttpsSelect ? proxyHttpsSelect.value : 'true';
+    const debugMode = debugSelect ? debugSelect.value : 'false';
     
     if (!userAgent) return alert('User-Agent cannot be empty');
 
     const res = await fetch('/api/settings', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ userAgent, layoutMode, shakaConfig, proxyHttps })
+        body: JSON.stringify({ userAgent, layoutMode, shakaConfig, proxyHttps, debugMode })
     });
 
     if (res.ok) {
@@ -586,26 +594,26 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- ANTI-DEBUGGING SAFEGUARDS ---
-document.addEventListener('contextmenu', event => event.preventDefault());
-document.addEventListener('keydown', (e) => {
-    if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || (e.ctrlKey && e.keyCode === 85)) {
-        e.preventDefault();
-        return false;
-    }
-});
+async function applySecurityPolicies() {
+    const res = await fetch('/api/settings', { headers: getAuthHeaders() });
+    const settings = await res.json();
+    if (settings.debugMode === 'true') return;
 
-function triggerSecurityViolation() {
-    document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20vh;'>Security Violation</h2>";
-    dynamicSecretKey = null;
-}
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    document.addEventListener('keydown', (e) => {
+        if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || (e.ctrlKey && e.keyCode === 85)) {
+            e.preventDefault();
+            return false;
+        }
+    });
 
-function checkDevTools() {
-    const before = new Date().getTime();
-    debugger;
-    if (new Date().getTime() - before > 100) {
-        triggerSecurityViolation();
-        return true;
-    }
-    return false;
+    setInterval(() => {
+        const before = new Date().getTime();
+        debugger;
+        if (new Date().getTime() - before > 100) {
+            document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20vh;'>Security Violation</h2>";
+            dynamicSecretKey = null;
+        }
+    }, 1000);
 }
-setInterval(checkDevTools, 1000);
+applySecurityPolicies();
