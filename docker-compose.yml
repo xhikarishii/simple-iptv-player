@@ -9,6 +9,11 @@ services:
       - .env
     volumes:
       - ./data:/app/data
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+      - 1.0.0.1
     restart: unless-stopped
 
   nginx:
@@ -24,4 +29,9 @@ services:
       - ./ssl:/etc/nginx/ssl:rw
     depends_on:
       - iptv-app
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+      - 1.0.0.1
     restart: unless-stopped
