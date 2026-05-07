@@ -450,8 +450,6 @@ function decryptPayload(encryptedPayload) {
 }
 
 async function loadPlaylists() {
-    if (checkDevTools()) return;
-
     try {
         const res = await fetch('/api/playlists', {
             headers: { 'Authorization': `Bearer ${sessionStorage.getItem('jwtToken') || localStorage.getItem('jwtToken')}` }
