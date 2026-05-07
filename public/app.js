@@ -352,9 +352,12 @@ async function initApp() {
 
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             const url = request.uris[0];
+            if (!url) return;
 
             // 1. External URLs (The Mixed Content Fixer & UA Spoofing)
-            const isExternal = (url.startsWith('http://') || url.startsWith('https://')) && !url.includes(window.location.host);
+            // NEVER proxy a URL that is already proxied or belongs to our own host
+            const isProxied = url.includes('/proxy/') || url.includes(window.location.host);
+            const isExternal = (url.startsWith('http://') || url.startsWith('https://')) && !isProxied;
             const isHostInsecure = window.location.protocol === 'http:';
 
             // We MUST use the proxy if:
@@ -376,7 +379,8 @@ async function initApp() {
                 let proxiedUrl = window.location.origin + '/proxy/' + url;
 
                 // Append the User-Agent as a query parameter for the Nginx proxy to consume
-                if (globalSettings.userAgent) {
+                // ONLY if it's not already there
+                if (globalSettings.userAgent && !proxiedUrl.includes('ua=')) {
                     proxiedUrl += (proxiedUrl.includes('?') ? '&' : '?') + 'ua=' + encodeURIComponent(globalSettings.userAgent);
                 }
 
