@@ -394,7 +394,7 @@ async function initApp() {
 
             // 2. Root-Relative Path Fixer
             // If the browser accidentally resolved a path against our player's root domain
-            else if (url.startsWith(window.location.origin) && !url.includes('/proxy/') && !url.includes('/api/')) {
+            else if (url.startsWith(window.location.origin) && !url.includes('/proxy/') && !url.includes('/api/') && !url.includes('/hls/')) {
                 if (currentUpstreamHost) {
                     const brokenPath = url.replace(window.location.origin, '');
                     // Reconstruct the proper proxy URL using the saved upstream host
