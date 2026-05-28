@@ -943,7 +943,8 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
 
             try {
                 let loadUrl = url;
-                if (url.toLowerCase().split('?')[0].endsWith('.ts')) {
+                const cleanUrl = url.toLowerCase().split('?')[0];
+                if (cleanUrl.endsWith('.ts') || url.toLowerCase().includes('output=ts') || cleanUrl.includes('/ts/')) {
                     const res = await fetch(`/api/stream/hls?url=${encodeURIComponent(url)}`);
                     if (!res.ok) {
                         const errText = await res.text();
