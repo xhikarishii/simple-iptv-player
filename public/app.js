@@ -942,9 +942,18 @@ async function playChannel(url, encodedKeyStr, isAutoplay = false) {
             if (myGeneration !== loadGeneration) return;
 
             try {
-                await player.load(url);
+                let loadUrl = url;
+                if (url.toLowerCase().split('?')[0].endsWith('.ts')) {
+                    const res = await fetch(`/api/stream/hls?url=${encodeURIComponent(url)}`);
+                    if (!res.ok) {
+                        const errText = await res.text();
+                        throw new Error(`TS Transmuxing failed: ${errText}`);
+                    }
+                    const data = await res.json();
+                    loadUrl = data.url;
+                }
 
-                // --- FORCED HIGHEST RESOLUTION ---
+                await player.load(loadUrl);
                 // If the user has selected the 'highest' profile, we disable ABR and manually
                 // select the variant with the highest bandwidth.
                 if (globalSettings.shakaConfig === 'highest') {

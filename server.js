@@ -5,6 +5,8 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const fs = require('fs');
+const { spawn } = require('child_process');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -328,5 +330,102 @@ app.post('/api/settings/user', authenticateToken, (req, res) => {
         });
     });
 });
+
+// --- FFmpeg HLS Wrapper ---
+
+const HLS_DIR = path.join(__dirname, 'data', 'hls_sessions');
+if (!fs.existsSync(HLS_DIR)) fs.mkdirSync(HLS_DIR, { recursive: true });
+
+const activeFfmpegSessions = new Map();
+
+// Middleware to track access time and serve files
+app.use('/hls', (req, res, next) => {
+    const match = req.path.match(/^\/([a-f0-9]+)\//);
+    if (match) {
+        const sessionId = match[1];
+        if (activeFfmpegSessions.has(sessionId)) {
+            activeFfmpegSessions.get(sessionId).lastAccess = Date.now();
+        }
+    }
+    // Set CORS headers for Shaka Player
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Range,Authorization,Content-Type');
+    next();
+}, express.static(HLS_DIR));
+
+// Start Transmux Session
+app.get('/api/stream/hls', (req, res) => {
+    const streamUrl = req.query.url;
+    if (!streamUrl) return res.status(400).send('URL required');
+
+    let sessionId = null;
+    for (const [id, session] of activeFfmpegSessions.entries()) {
+        if (session.url === streamUrl) {
+            sessionId = id;
+            session.lastAccess = Date.now();
+            break;
+        }
+    }
+
+    if (!sessionId) {
+        sessionId = crypto.randomBytes(8).toString('hex');
+        const sessionDir = path.join(HLS_DIR, sessionId);
+        fs.mkdirSync(sessionDir, { recursive: true });
+
+        const args = [
+            '-y',
+            '-user_agent', 'VLC/3.0.16 LibVLC/3.0.16',
+            '-i', streamUrl,
+            '-c', 'copy',
+            '-f', 'hls',
+            '-hls_time', '4',
+            '-hls_list_size', '5',
+            '-hls_flags', 'delete_segments+append_list',
+            path.join(sessionDir, 'index.m3u8')
+        ];
+
+        const ffmpegProcess = spawn('ffmpeg', args);
+        
+        activeFfmpegSessions.set(sessionId, {
+            process: ffmpegProcess,
+            url: streamUrl,
+            lastAccess: Date.now(),
+            dir: sessionDir
+        });
+
+        ffmpegProcess.on('close', () => {
+            activeFfmpegSessions.delete(sessionId);
+            try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
+        });
+    }
+
+    const m3u8Path = path.join(HLS_DIR, sessionId, 'index.m3u8');
+    
+    let attempts = 0;
+    const checkReady = setInterval(() => {
+        attempts++;
+        if (fs.existsSync(m3u8Path)) {
+            clearInterval(checkReady);
+            res.json({ url: `/hls/${sessionId}/index.m3u8` });
+        } else if (attempts > 50) { // 10 seconds timeout
+            clearInterval(checkReady);
+            res.status(500).json({ error: 'FFmpeg failed to start stream' });
+            const session = activeFfmpegSessions.get(sessionId);
+            if (session) session.process.kill('SIGKILL');
+        }
+    }, 200);
+});
+
+// Cleanup inactive sessions (every 10s)
+setInterval(() => {
+    const now = Date.now();
+    for (const [sessionId, session] of activeFfmpegSessions.entries()) {
+        if (now - session.lastAccess > 20000) { // 20 seconds inactivity
+            console.log(`Killing inactive FFmpeg session ${sessionId}`);
+            session.process.kill('SIGKILL'); 
+        }
+    }
+}, 10000);
 
 app.listen(port);

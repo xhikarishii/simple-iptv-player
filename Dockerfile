@@ -1,5 +1,5 @@
 FROM node:18-alpine
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ ffmpeg
 WORKDIR /app
 
 # Copy files and install dependencies
